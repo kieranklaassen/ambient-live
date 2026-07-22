@@ -21,10 +21,16 @@ interface MidiInputOption {
 }
 
 function listInputs(access: MIDIAccess): MidiInputOption[] {
-  return Array.from(access.inputs.values()).map((input) => ({
-    id: input.id,
-    name: input.name || input.id,
-  }))
+  return Array.from(access.inputs.values())
+    .filter((input) => input.state === 'connected')
+    .map((input) => ({
+      id: input.id,
+      name: input.name || input.id,
+    }))
+}
+
+function isActiveConnected(input: MIDIInput | null): boolean {
+  return input !== null && input.state === 'connected'
 }
 
 export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiControlsProps) {
@@ -40,6 +46,8 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
   const activeNotesRef = useRef<Set<number>>(new Set())
   const onNoteOnRef = useRef(onNoteOn)
   const onNoteOffRef = useRef(onNoteOff)
+  const mountedRef = useRef(true)
+  const refreshInputsRef = useRef<(access: MIDIAccess) => void>(() => {})
 
   useEffect(() => {
     onNoteOnRef.current = onNoteOn
@@ -64,7 +72,8 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
       return
     }
 
-    activeNotesRef.current.delete(parsed.note)
+    // Only release notes this MIDI path actually started (avoid silencing keyboard holds).
+    if (!activeNotesRef.current.delete(parsed.note)) return
     onNoteOffRef.current(parsed.note)
   }, [])
 
@@ -78,13 +87,14 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
   }, [releaseAll])
 
   const attachInput = useCallback(
-    (access: MIDIAccess, id: string) => {
+    (access: MIDIAccess, id: string): boolean => {
       detachInput()
-      if (!id) return
+      if (!id) return false
       const input = access.inputs.get(id)
-      if (!input) return
+      if (!input || input.state !== 'connected') return false
       input.onmidimessage = handleMessage
       activeInputRef.current = input
+      return true
     },
     [detachInput, handleMessage],
   )
@@ -97,16 +107,19 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
         if (current && next.some((entry) => entry.id === current)) return current
         return ''
       })
-      const stillPresent =
-        activeInputRef.current !== null &&
-        next.some((entry) => entry.id === activeInputRef.current?.id)
-      if (!stillPresent) detachInput()
+      if (!isActiveConnected(activeInputRef.current)) detachInput()
     },
     [detachInput],
   )
 
   useEffect(() => {
+    refreshInputsRef.current = refreshInputs
+  }, [refreshInputs])
+
+  useEffect(() => {
+    mountedRef.current = true
     return () => {
+      mountedRef.current = false
       const access = accessRef.current
       if (access) access.onstatechange = null
       detachInput()
@@ -124,25 +137,34 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
     setStatus({ kind: 'connecting' })
     try {
       const access = await navigator.requestMIDIAccess({ sysex: false })
+      if (!mountedRef.current) return
       accessRef.current = access
-      access.onstatechange = () => refreshInputs(access)
+      access.onstatechange = () => {
+        if (!mountedRef.current || accessRef.current !== access) return
+        refreshInputsRef.current(access)
+      }
       refreshInputs(access)
       setStatus({ kind: 'ready' })
     } catch (error) {
+      if (!mountedRef.current) return
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ kind: 'denied', message })
     }
   }
 
   function selectInput(id: string) {
-    setSelectedId(id)
     const access = accessRef.current
     if (!access) return
     if (!id) {
       detachInput()
+      setSelectedId('')
       return
     }
-    attachInput(access, id)
+    if (!attachInput(access, id)) {
+      setSelectedId('')
+      return
+    }
+    setSelectedId(id)
   }
 
   if (status.kind === 'unsupported') {

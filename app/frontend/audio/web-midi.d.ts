@@ -7,7 +7,7 @@ interface MIDIOptions {
 interface MIDIPort {
   readonly id: string
   readonly name: string | null
-  readonly state: string
+  readonly state: 'connected' | 'disconnected' | 'pending'
   readonly type: string
 }
 

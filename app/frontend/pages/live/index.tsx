@@ -59,15 +59,44 @@ export default function Live({ samples }: LiveProps) {
     }
   }, [])
 
-  const noteOn = useCallback((noteId: number, frequency: number) => {
-    engineRef.current?.noteOn(noteId, frequency, 0.4)
+  // Refcount overlapping keyboard + MIDI holds so one input releasing a
+  // shared noteId does not cut a voice the other input still owns.
+  const noteHoldCounts = useRef(new Map<number, number>())
+
+  const acquireNote = useCallback((noteId: number, frequency: number, gain: number) => {
+    const next = (noteHoldCounts.current.get(noteId) ?? 0) + 1
+    noteHoldCounts.current.set(noteId, next)
+    if (next === 1) engineRef.current?.noteOn(noteId, frequency, gain)
   }, [])
-  const midiNoteOn = useCallback((noteId: number, frequency: number, gain: number) => {
-    engineRef.current?.noteOn(noteId, frequency, gain)
+
+  const releaseNote = useCallback((noteId: number) => {
+    const current = noteHoldCounts.current.get(noteId) ?? 0
+    if (current <= 1) {
+      noteHoldCounts.current.delete(noteId)
+      engineRef.current?.noteOff(noteId)
+      return
+    }
+    noteHoldCounts.current.set(noteId, current - 1)
   }, [])
-  const noteOff = useCallback((noteId: number) => {
-    engineRef.current?.noteOff(noteId)
-  }, [])
+
+  const noteOn = useCallback(
+    (noteId: number, frequency: number) => {
+      acquireNote(noteId, frequency, 0.4)
+    },
+    [acquireNote],
+  )
+  const midiNoteOn = useCallback(
+    (noteId: number, frequency: number, gain: number) => {
+      acquireNote(noteId, frequency, gain)
+    },
+    [acquireNote],
+  )
+  const noteOff = useCallback(
+    (noteId: number) => {
+      releaseNote(noteId)
+    },
+    [releaseNote],
+  )
 
   function changeSetting(field: keyof ReverbSettings, param: ParamId, value: number) {
     setSettings((previous) => ({ ...previous, [field]: value }))
