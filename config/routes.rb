@@ -6,9 +6,7 @@ Rails.application.routes.draw do
   constraints(host: "127.0.0.1") do
     get "(*path)", to: redirect { |params, req| "#{req.protocol}localhost:#{req.port}/#{params[:path]}" }
   end
-  root 'inertia_example#index'
-  get 'inertia-example', to: 'inertia_example#index'
-  # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
+  root "live#index"
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.

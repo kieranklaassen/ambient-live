@@ -1,29 +1,60 @@
 {
+  "_dist-hiEr-7cB.js": {
+    "file": "assets/dist-hiEr-7cB.js",
+    "name": "dist",
+    "imports": [
+      "_rolldown-runtime-QTnfLwEv.js",
+      "_react-Biaal4sZ.js"
+    ]
+  },
   "_inertia-BBwuM70o.svg": {
     "file": "assets/inertia-BBwuM70o.svg",
     "src": "_inertia-BBwuM70o.svg"
   },
-  "_jsx-runtime-ChfbbddF.js": {
-    "file": "assets/jsx-runtime-ChfbbddF.js",
+  "_jsx-runtime-DEuHyVDk.js": {
+    "file": "assets/jsx-runtime-DEuHyVDk.js",
     "name": "jsx-runtime",
     "imports": [
-      "entrypoints/inertia.tsx"
+      "_rolldown-runtime-QTnfLwEv.js"
+    ]
+  },
+  "_rails-CaIcUWwI.svg": {
+    "file": "assets/rails-CaIcUWwI.svg",
+    "src": "_rails-CaIcUWwI.svg"
+  },
+  "_react-Biaal4sZ.js": {
+    "file": "assets/react-Biaal4sZ.js",
+    "name": "react",
+    "imports": [
+      "_rolldown-runtime-QTnfLwEv.js"
     ]
   },
   "_react-D1O1WqmP.svg": {
     "file": "assets/react-D1O1WqmP.svg",
     "src": "_react-D1O1WqmP.svg"
   },
+  "_reverb-controls-8lORSeZ6.js": {
+    "file": "assets/reverb-controls-8lORSeZ6.js",
+    "name": "reverb-controls",
+    "imports": [
+      "_rolldown-runtime-QTnfLwEv.js",
+      "_jsx-runtime-DEuHyVDk.js"
+    ]
+  },
+  "_rolldown-runtime-QTnfLwEv.js": {
+    "file": "assets/rolldown-runtime-QTnfLwEv.js",
+    "name": "rolldown-runtime"
+  },
   "_vite_ruby-BkLf4vgQ.svg": {
     "file": "assets/vite_ruby-BkLf4vgQ.svg",
     "src": "_vite_ruby-BkLf4vgQ.svg"
   },
-  "assets/rails.svg": {
-    "file": "assets/rails-CaIcUWwI.svg",
-    "src": "assets/rails.svg"
+  "audio/engine.wasm": {
+    "file": "assets/engine-Ac6bkKBs.wasm",
+    "src": "audio/engine.wasm"
   },
   "entrypoints/application.css": {
-    "file": "assets/application-B3UmbKnB.css",
+    "file": "assets/application-DDZIEC9Y.css",
     "name": "entrypoints/application.css",
     "names": [
       "entrypoints/application.css"
@@ -38,39 +69,70 @@
     "isEntry": true
   },
   "entrypoints/inertia.tsx": {
-    "file": "assets/inertia-B4GKOrEL.js",
+    "file": "assets/inertia-CTkuvSS4.js",
     "name": "entrypoints/inertia.tsx",
     "src": "entrypoints/inertia.tsx",
     "isEntry": true,
+    "imports": [
+      "_dist-hiEr-7cB.js"
+    ],
     "dynamicImports": [
       "pages/auth/login.tsx",
-      "pages/inertia_example/index.tsx"
+      "pages/live/index.tsx",
+      "pages/live/keyboard.tsx",
+      "_reverb-controls-8lORSeZ6.js",
+      "pages/live/sample-library.tsx"
     ]
   },
   "pages/auth/login.tsx": {
-    "file": "assets/login-wL59WPh1.js",
+    "file": "assets/login-C23I6Ry6.js",
     "name": "login",
     "src": "pages/auth/login.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "entrypoints/inertia.tsx",
-      "_jsx-runtime-ChfbbddF.js"
+      "_dist-hiEr-7cB.js",
+      "_jsx-runtime-DEuHyVDk.js"
     ]
   },
-  "pages/inertia_example/index.tsx": {
-    "file": "assets/inertia_example-tFZ1p7ip.js",
-    "name": "inertia_example",
-    "src": "pages/inertia_example/index.tsx",
+  "pages/live/index.tsx": {
+    "file": "assets/live-C63_HIbz.js",
+    "name": "live",
+    "src": "pages/live/index.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "entrypoints/inertia.tsx",
-      "_jsx-runtime-ChfbbddF.js"
-    ],
-    "css": [
-      "assets/inertia_example-CAxN9LE_.css"
+      "_rolldown-runtime-QTnfLwEv.js",
+      "_dist-hiEr-7cB.js",
+      "_react-Biaal4sZ.js",
+      "_jsx-runtime-DEuHyVDk.js",
+      "_reverb-controls-8lORSeZ6.js",
+      "pages/live/keyboard.tsx",
+      "pages/live/sample-library.tsx"
     ],
     "assets": [
-      "assets/rails-CaIcUWwI.svg"
+      "assets/engine-Ac6bkKBs.wasm"
+    ]
+  },
+  "pages/live/keyboard.tsx": {
+    "file": "assets/keyboard-CchJ42yY.js",
+    "name": "keyboard",
+    "src": "pages/live/keyboard.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-QTnfLwEv.js",
+      "_react-Biaal4sZ.js",
+      "_jsx-runtime-DEuHyVDk.js"
+    ]
+  },
+  "pages/live/sample-library.tsx": {
+    "file": "assets/sample-library-jw5LSkza.js",
+    "name": "sample-library",
+    "src": "pages/live/sample-library.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-QTnfLwEv.js",
+      "_dist-hiEr-7cB.js",
+      "_react-Biaal4sZ.js",
+      "_jsx-runtime-DEuHyVDk.js"
     ]
   }
 }
