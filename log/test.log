@@ -227,3 +227,930 @@ Skipping vite build. Watched files have not changed since the last build at 2026
   Rendered layout layouts/application.html.erb (Duration: 0.6ms | GC: 0.0ms)
 Completed 200 OK in 2ms (Views: 1.2ms | ActiveRecord: 0.0ms (1 query, 0 cached) | GC: 0.1ms)
   [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mActiveRecord::InternalMetadata Load (0.3ms)[0m  [1m[34mSELECT * FROM "ar_internal_metadata" WHERE "ar_internal_metadata"."key" = ? ORDER BY "ar_internal_metadata"."key" ASC LIMIT 1[0m  [[nil, "schema_sha1"]]
+  [1m[35m (0.2ms)[0m  [1m[35mDROP TABLE IF EXISTS "active_storage_attachments"[0m
+  [1m[35m (0.2ms)[0m  [1m[35mCREATE TABLE "active_storage_attachments" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "blob_id" bigint NOT NULL, "created_at" datetime(6) NOT NULL, "name" varchar NOT NULL, "record_id" bigint NOT NULL, "record_type" varchar NOT NULL)[0m
+  [1m[35m (0.1ms)[0m  [1m[35mCREATE INDEX "index_active_storage_attachments_on_blob_id" ON "active_storage_attachments" ("blob_id")[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE UNIQUE INDEX "index_active_storage_attachments_uniqueness" ON "active_storage_attachments" ("record_type", "record_id", "name", "blob_id")[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE IF EXISTS "active_storage_blobs"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "active_storage_blobs" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "byte_size" bigint NOT NULL, "checksum" varchar, "content_type" varchar, "created_at" datetime(6) NOT NULL, "filename" varchar NOT NULL, "key" varchar NOT NULL, "metadata" text, "service_name" varchar NOT NULL)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE UNIQUE INDEX "index_active_storage_blobs_on_key" ON "active_storage_blobs" ("key")[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE IF EXISTS "active_storage_variant_records"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "active_storage_variant_records" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "blob_id" bigint NOT NULL, "variation_digest" varchar NOT NULL)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE UNIQUE INDEX "index_active_storage_variant_records_uniqueness" ON "active_storage_variant_records" ("blob_id", "variation_digest")[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE IF EXISTS "samples"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "samples" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "name" varchar NOT NULL, "updated_at" datetime(6) NOT NULL, "user_id" integer NOT NULL)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE INDEX "index_samples_on_user_id" ON "samples" ("user_id")[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE IF EXISTS "sessions"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "sessions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "ip_address" varchar, "updated_at" datetime(6) NOT NULL, "user_agent" varchar, "user_id" integer NOT NULL)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE INDEX "index_sessions_on_user_id" ON "sessions" ("user_id")[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE IF EXISTS "users"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "users" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "email_address" varchar NOT NULL, "password_digest" varchar NOT NULL, "updated_at" datetime(6) NOT NULL)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE UNIQUE INDEX "index_users_on_email_address" ON "users" ("email_address")[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = ON[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = OFF[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN immediate TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TEMPORARY TABLE "aactive_storage_attachments" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "blob_id" bigint NOT NULL, "created_at" datetime(6) NOT NULL, "name" varchar NOT NULL, "record_id" bigint NOT NULL, "record_type" varchar NOT NULL)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE UNIQUE INDEX "tindex_aactive_storage_attachments_uniqueness" ON "aactive_storage_attachments" ("record_type", "record_id", "name", "blob_id")[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE INDEX "tindex_aactive_storage_attachments_on_blob_id" ON "aactive_storage_attachments" ("blob_id")[0m
+  [1m[35mSQL (0.0ms)[0m  [1m[32mINSERT INTO "aactive_storage_attachments" ("id","blob_id","created_at","name","record_id","record_type")
+                     SELECT "id","blob_id","created_at","name","record_id","record_type" FROM "active_storage_attachments"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE "active_storage_attachments"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "active_storage_attachments" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "blob_id" bigint NOT NULL, "created_at" datetime(6) NOT NULL, "name" varchar NOT NULL, "record_id" bigint NOT NULL, "record_type" varchar NOT NULL, CONSTRAINT "fk_rails_c3b3935057"
+FOREIGN KEY ("blob_id")
+  REFERENCES "active_storage_blobs" ("id")
+)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE INDEX "index_active_storage_attachments_on_blob_id" ON "active_storage_attachments" ("blob_id")[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE UNIQUE INDEX "index_active_storage_attachments_uniqueness" ON "active_storage_attachments" ("record_type", "record_id", "name", "blob_id")[0m
+  [1m[35mSQL (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_attachments" ("id","blob_id","created_at","name","record_id","record_type")
+                     SELECT "id","blob_id","created_at","name","record_id","record_type" FROM "aactive_storage_attachments"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE "aactive_storage_attachments"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mCOMMIT TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = 0[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = 1[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = ON[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = OFF[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN immediate TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TEMPORARY TABLE "aactive_storage_variant_records" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "blob_id" bigint NOT NULL, "variation_digest" varchar NOT NULL)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE UNIQUE INDEX "tindex_aactive_storage_variant_records_uniqueness" ON "aactive_storage_variant_records" ("blob_id", "variation_digest")[0m
+  [1m[35mSQL (0.0ms)[0m  [1m[32mINSERT INTO "aactive_storage_variant_records" ("id","blob_id","variation_digest")
+                     SELECT "id","blob_id","variation_digest" FROM "active_storage_variant_records"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE "active_storage_variant_records"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "active_storage_variant_records" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "blob_id" bigint NOT NULL, "variation_digest" varchar NOT NULL, CONSTRAINT "fk_rails_993965df05"
+FOREIGN KEY ("blob_id")
+  REFERENCES "active_storage_blobs" ("id")
+)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE UNIQUE INDEX "index_active_storage_variant_records_uniqueness" ON "active_storage_variant_records" ("blob_id", "variation_digest")[0m
+  [1m[35mSQL (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_variant_records" ("id","blob_id","variation_digest")
+                     SELECT "id","blob_id","variation_digest" FROM "aactive_storage_variant_records"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE "aactive_storage_variant_records"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mCOMMIT TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = 0[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = 1[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = ON[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = OFF[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN immediate TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TEMPORARY TABLE "asamples" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "name" varchar NOT NULL, "updated_at" datetime(6) NOT NULL, "user_id" integer NOT NULL)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE INDEX "tindex_asamples_on_user_id" ON "asamples" ("user_id")[0m
+  [1m[35mSQL (0.0ms)[0m  [1m[32mINSERT INTO "asamples" ("id","created_at","name","updated_at","user_id")
+                     SELECT "id","created_at","name","updated_at","user_id" FROM "samples"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE "samples"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "samples" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "name" varchar NOT NULL, "updated_at" datetime(6) NOT NULL, "user_id" integer NOT NULL, CONSTRAINT "fk_rails_d699eb2564"
+FOREIGN KEY ("user_id")
+  REFERENCES "users" ("id")
+)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE INDEX "index_samples_on_user_id" ON "samples" ("user_id")[0m
+  [1m[35mSQL (0.0ms)[0m  [1m[32mINSERT INTO "samples" ("id","created_at","name","updated_at","user_id")
+                     SELECT "id","created_at","name","updated_at","user_id" FROM "asamples"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE "asamples"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mCOMMIT TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = 0[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = 1[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = ON[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = OFF[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN immediate TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TEMPORARY TABLE "asessions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "ip_address" varchar, "updated_at" datetime(6) NOT NULL, "user_agent" varchar, "user_id" integer NOT NULL)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE INDEX "tindex_asessions_on_user_id" ON "asessions" ("user_id")[0m
+  [1m[35mSQL (0.0ms)[0m  [1m[32mINSERT INTO "asessions" ("id","created_at","ip_address","updated_at","user_agent","user_id")
+                     SELECT "id","created_at","ip_address","updated_at","user_agent","user_id" FROM "sessions"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE "sessions"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "sessions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "ip_address" varchar, "updated_at" datetime(6) NOT NULL, "user_agent" varchar, "user_id" integer NOT NULL, CONSTRAINT "fk_rails_758836b4f0"
+FOREIGN KEY ("user_id")
+  REFERENCES "users" ("id")
+)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE INDEX "index_sessions_on_user_id" ON "sessions" ("user_id")[0m
+  [1m[35mSQL (0.0ms)[0m  [1m[32mINSERT INTO "sessions" ("id","created_at","ip_address","updated_at","user_agent","user_id")
+                     SELECT "id","created_at","ip_address","updated_at","user_agent","user_id" FROM "asessions"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE "asessions"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mCOMMIT TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = 0[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = 1[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "schema_migrations" ("version" varchar NOT NULL PRIMARY KEY)[0m
+  [1m[36mActiveRecord::SchemaMigration Load (0.0ms)[0m  [1m[34mSELECT "schema_migrations"."version" FROM "schema_migrations" ORDER BY "schema_migrations"."version" ASC[0m
+  [1m[35m (0.0ms)[0m  [1m[32mINSERT INTO "schema_migrations" (version) VALUES (20260722005425)[0m
+  [1m[35m (0.0ms)[0m  [1m[32mINSERT INTO "schema_migrations" (version) VALUES
+(20260722005424),
+(20260722004128),
+(20260722004127);[0m
+  [1m[35m (0.1ms)[0m  [1m[35mCREATE TABLE "ar_internal_metadata" ("key" varchar NOT NULL PRIMARY KEY, "value" varchar, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL)[0m
+  [1m[36mActiveRecord::InternalMetadata Load (0.0ms)[0m  [1m[34mSELECT * FROM "ar_internal_metadata" WHERE "ar_internal_metadata"."key" = ? ORDER BY "ar_internal_metadata"."key" ASC LIMIT 1[0m  [[nil, "environment"]]
+  [1m[36mActiveRecord::InternalMetadata Create (0.0ms)[0m  [1m[32mINSERT INTO "ar_internal_metadata" ("key", "value", "created_at", "updated_at") VALUES ('environment', 'test', '2026-07-22 00:55:29.158118', '2026-07-22 00:55:29.158119') RETURNING "key"[0m
+  [1m[36mActiveRecord::InternalMetadata Load (0.0ms)[0m  [1m[34mSELECT * FROM "ar_internal_metadata" WHERE "ar_internal_metadata"."key" = ? ORDER BY "ar_internal_metadata"."key" ASC LIMIT 1[0m  [[nil, "environment"]]
+  [1m[36mActiveRecord::InternalMetadata Load (0.0ms)[0m  [1m[34mSELECT * FROM "ar_internal_metadata" WHERE "ar_internal_metadata"."key" = ? ORDER BY "ar_internal_metadata"."key" ASC LIMIT 1[0m  [[nil, "schema_sha1"]]
+  [1m[36mActiveRecord::InternalMetadata Create (0.0ms)[0m  [1m[32mINSERT INTO "ar_internal_metadata" ("key", "value", "created_at", "updated_at") VALUES ('schema_sha1', '1f51b809949d0b7327a7b446108a1aec11b95e8c', '2026-07-22 00:55:29.158426', '2026-07-22 00:55:29.158426') RETURNING "key"[0m
+  [1m[36mActiveRecord::SchemaMigration Load (0.0ms)[0m  [1m[34mSELECT "schema_migrations"."version" FROM "schema_migrations" ORDER BY "schema_migrations"."version" ASC[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN immediate TRANSACTION[0m
+  [1m[35m (0.1ms)[0m  [1m[35mPRAGMA foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = ON[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = OFF[0m
+  [1m[36mFixtures Load (0.1ms)[0m  [1m[31mDELETE FROM "users";
+INSERT INTO "users" ("id", "created_at", "email_address", "password_digest", "updated_at") VALUES (258008703, '2026-07-22 00:55:29.604929', 'owner@example.com', '$2a$12$EKcskKCsA5XczIRtWFL3u.gu.sGbKlJmz3Am4NL0AsDTbgnMtjSue', '2026-07-22 00:55:29.604929'), (425211171, '2026-07-22 00:55:29.604929', 'other@example.com', '$2a$12$EKcskKCsA5XczIRtWFL3u.gu.sGbKlJmz3Am4NL0AsDTbgnMtjSue', '2026-07-22 00:55:29.604929')[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = 0[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = 1[0m
+  [1m[36mTRANSACTION (0.5ms)[0m  [1m[36mCOMMIT TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_key_check[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------------
+SessionsControllerTest: test_new_renders_the_login_page
+-------------------------------------------------------
+  [1m[36mUser Load (0.1ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started GET "/session/new" for 127.0.0.1 at 2026-07-21 17:55:29 -0700
+Processing by SessionsController#new as HTML
+  Rendering layout layouts/application.html.erb
+  Rendering /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application
+  Rendered /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application (Duration: 0.4ms | GC: 0.0ms)
+Building with Vite ⚡️
+vite v8.1.5 building client environment for test...
+
+[2Ktransforming...✓ 556 modules transformed.
+
+rendering chunks...
+
+computing gzip size...
+
+public/vite-test/assets/react-D1O1WqmP.svg              0.41 kB │ gzip:  0.26 kB
+
+public/vite-test/.vite/manifest-assets.json             0.42 kB │ gzip:  0.17 kB
+
+public/vite-test/assets/inertia-BBwuM70o.svg            0.59 kB │ gzip:  0.35 kB
+
+public/vite-test/assets/vite_ruby-BkLf4vgQ.svg          1.62 kB │ gzip:  0.71 kB
+
+public/vite-test/.vite/manifest.json                    1.97 kB │ gzip:  0.47 kB
+
+public/vite-test/assets/rails-CaIcUWwI.svg              8.83 kB │ gzip:  3.85 kB
+
+public/vite-test/assets/inertia_example-CAxN9LE_.css    2.23 kB │ gzip:  0.96 kB
+
+public/vite-test/assets/application-B3UmbKnB.css       15.02 kB │ gzip:  3.87 kB
+
+public/vite-test/assets/application-DQOSP7X8.js         0.13 kB │ gzip:  0.13 kB
+
+public/vite-test/assets/jsx-runtime-ChfbbddF.js         0.38 kB │ gzip:  0.28 kB
+
+public/vite-test/assets/login-wL59WPh1.js               1.87 kB │ gzip:  0.74 kB
+
+public/vite-test/assets/inertia_example-tFZ1p7ip.js     3.26 kB │ gzip:  1.26 kB
+
+public/vite-test/assets/inertia-B4GKOrEL.js           316.31 kB │ gzip: 99.69 kB
+
+
+
+✓ built in 216ms
+
+Build with Vite complete: /Users/kieranklaassen/kkfonie/ambient-live/public/vite-test
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+  Rendered layout layouts/application.html.erb (Duration: 866.2ms | GC: 0.0ms)
+Completed 200 OK in 876ms (Views: 871.7ms | ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.1ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------------------------------------------
+SessionsControllerTest: test_destroy_terminates_the_session_and_gates_subsequent_requests
+-----------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.1ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:30.531597"], ["ip_address", nil], ["updated_at", "2026-07-22 00:55:30.531597"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Started DELETE "/session" for 127.0.0.1 at 2026-07-21 17:55:30 -0700
+Processing by SessionsController#destroy as HTML
+  [1m[36mSession Load (0.1ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Destroy (0.1ms)[0m  [1m[31mDELETE FROM "sessions" WHERE "sessions"."id" = ?[0m  [["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Redirected to http://www.example.com/session/new
+Completed 303 See Other in 4ms (ActiveRecord: 0.1ms (2 queries, 0 cached) | GC: 0.8ms)
+Started GET "/" for 127.0.0.1 at 2026-07-21 17:55:30 -0700
+Processing by InertiaExampleController#index as HTML
+Redirected to http://www.example.com/session/new
+Filter chain halted as :require_authentication rendered or redirected
+Completed 302 Found in 0ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.2ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------------------------------------
+SessionsControllerTest: test_unauthenticated_request_to_root_redirects_to_login
+-------------------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started GET "/" for 127.0.0.1 at 2026-07-21 17:55:30 -0700
+Processing by InertiaExampleController#index as HTML
+Redirected to http://www.example.com/session/new
+Filter chain halted as :require_authentication rendered or redirected
+Completed 302 Found in 0ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.1ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+----------------------------------------------------------------------------------------------------------
+SessionsControllerTest: test_create_with_invalid_credentials_re-renders_login_with_an_error_and_no_session
+----------------------------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started POST "/session" for 127.0.0.1 at 2026-07-21 17:55:30 -0700
+Processing by SessionsController#create as HTML
+  Parameters: {"email_address" => "[FILTERED]", "password" => "[FILTERED]"}
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."email_address" = ? LIMIT ?[0m  [["email_address", "[FILTERED]"], ["LIMIT", 1]]
+Redirected to http://www.example.com/session/new
+Completed 302 Found in 193ms (ActiveRecord: 0.0ms (1 query, 0 cached) | GC: 0.5ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------------------------------------------
+SessionsControllerTest: test_create_with_valid_credentials_signs_in_and_redirects_to_root
+-----------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started POST "/session" for 127.0.0.1 at 2026-07-21 17:55:30 -0700
+Processing by SessionsController#create as HTML
+  Parameters: {"email_address" => "[FILTERED]", "password" => "[FILTERED]"}
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."email_address" = ? LIMIT ?[0m  [["email_address", "[FILTERED]"], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.2ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:30.934119"], ["ip_address", "127.0.0.1"], ["updated_at", "2026-07-22 00:55:30.934119"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Redirected to http://www.example.com/
+Completed 302 Found in 195ms (ActiveRecord: 0.2ms (2 queries, 0 cached) | GC: 1.3ms)
+Started GET "/" for 127.0.0.1 at 2026-07-21 17:55:30 -0700
+Processing by InertiaExampleController#index as HTML
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  Rendering layout layouts/application.html.erb
+  Rendering /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application
+  Rendered /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application (Duration: 0.1ms | GC: 0.0ms)
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+  Rendered layout layouts/application.html.erb (Duration: 5.9ms | GC: 3.3ms)
+Completed 200 OK in 8ms (Views: 7.0ms | ActiveRecord: 0.0ms (1 query, 0 cached) | GC: 4.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------
+UserTest: test_downcases_and_strips_email_address
+-------------------------------------------------
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------------------------------------------
+IsolationHeadersTest: test_login_page_response_carries_cross-origin_isolation_headers
+-------------------------------------------------------------------------------------
+Started GET "/session/new" for 127.0.0.1 at 2026-07-21 17:55:30 -0700
+Processing by SessionsController#new as HTML
+  Rendering layout layouts/application.html.erb
+  Rendering /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application
+  Rendered /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application (Duration: 0.2ms | GC: 0.2ms)
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+  Rendered layout layouts/application.html.erb (Duration: 1.8ms | GC: 1.1ms)
+Completed 200 OK in 3ms (Views: 2.6ms | ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 1.7ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+--------------------------------------------------------------------------------------------
+IsolationHeadersTest: test_authenticated_page_responses_carry_cross-origin_isolation_headers
+--------------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.4ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:30.951467"], ["ip_address", nil], ["updated_at", "2026-07-22 00:55:30.951467"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Started GET "/" for 127.0.0.1 at 2026-07-21 17:55:30 -0700
+Processing by InertiaExampleController#index as HTML
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  Rendering layout layouts/application.html.erb
+  Rendering /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application
+  Rendered /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application (Duration: 0.0ms | GC: 0.0ms)
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+  Rendered layout layouts/application.html.erb (Duration: 1.6ms | GC: 0.8ms)
+Completed 200 OK in 2ms (Views: 1.9ms | ActiveRecord: 0.0ms (1 query, 0 cached) | GC: 0.9ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+----------------------------------------------
+SampleTest: test_invalid_without_an_attachment
+----------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+------------------------------------------------------
+SampleTest: test_invalid_when_larger_than_the_size_cap
+------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+------------------------------------------------------
+SampleTest: test_invalid_with_a_non-audio_content_type
+------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+------------------------------------------------
+SampleTest: test_valid_with_an_attached_wav_file
+------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------
+SampleTest: test_derives_blank_name_from_the_filename
+-----------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------
+SampleTest: test_destroy_purges_the_attached_blob
+-------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSample Create (0.1ms)[0m  [1m[32mINSERT INTO "samples" ("created_at", "name", "updated_at", "user_id") VALUES (?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:30.986073"], ["name", "Purge me"], ["updated_at", "2026-07-22 00:55:30.986073"], ["user_id", 258008703]]
+  [1m[36mActiveStorage::Attachment Load (0.0ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Blob Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_blobs" ("byte_size", "checksum", "content_type", "created_at", "filename", "key", "metadata", "service_name") VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING "id"[0m  [["byte_size", 9644], ["checksum", "gva2yXXxx7rSengUt5Ipag=="], ["content_type", "audio/x-wav"], ["created_at", "2026-07-22 00:55:30.986888"], ["filename", "tone.wav"], ["key", "qb194db6hc0cms6lstzl037y65lt"], ["metadata", "{\"identified\":true}"], ["service_name", "test"]]
+  [1m[36mActiveStorage::Attachment Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_attachments" ("blob_id", "created_at", "name", "record_id", "record_type") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["blob_id", 1], ["created_at", "2026-07-22 00:55:30.987117"], ["name", "audio_file"], ["record_id", 1], ["record_type", "Sample"]]
+  [1m[36mSample Update (0.0ms)[0m  [1m[33mUPDATE "samples" SET "updated_at" = ? WHERE "samples"."id" = ?[0m  [["updated_at", "2026-07-22 00:55:30.987295"], ["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+[36m  Disk Storage (0.4ms) [0m[32mUploaded file to key: qb194db6hc0cms6lstzl037y65lt (checksum: gva2yXXxx7rSengUt5Ipag==)[0m
+[ActiveJob] Enqueued ActiveStorage::AnalyzeJob (Job ID: a279cb2f-6731-4885-8f57-caab60c5b8fb) to Test(default) with arguments: #<GlobalID:0x000000012a5773f0 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------------------
+SamplesControllerTest: test_destroy_removes_the_user's_own_sample
+-----------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:30.990890"], ["ip_address", nil], ["updated_at", "2026-07-22 00:55:30.990890"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Started POST "/samples" for 127.0.0.1 at 2026-07-21 17:55:30 -0700
+Processing by SamplesController#create as HTML
+  Parameters: {"name" => "Doomed", "audio_file" => #<ActionDispatch::Http::UploadedFile:0x000000012a135238 @tempfile=#<Tempfile:/var/folders/jp/ncl51rb16h1db0zysgj1_ph40000gn/T/RackMultipart20260721-2816-gb53ep.wav>, @content_type="audio/wav", @original_filename="tone.wav", @headers="content-disposition: form-data; name=\"audio_file\"; filename=\"tone.wav\"\r\ncontent-type: audio/wav\r\ncontent-length: 9644\r\n">}
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSample Create (0.1ms)[0m  [1m[32mINSERT INTO "samples" ("created_at", "name", "updated_at", "user_id") VALUES (?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:31.002106"], ["name", "Doomed"], ["updated_at", "2026-07-22 00:55:31.002106"], ["user_id", 258008703]]
+  [1m[36mActiveStorage::Attachment Load (0.0ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Blob Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_blobs" ("byte_size", "checksum", "content_type", "created_at", "filename", "key", "metadata", "service_name") VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING "id"[0m  [["byte_size", 9644], ["checksum", "gva2yXXxx7rSengUt5Ipag=="], ["content_type", "audio/x-wav"], ["created_at", "2026-07-22 00:55:31.002913"], ["filename", "tone.wav"], ["key", "88lwil3vsoamxjz3ldup9xy8qhig"], ["metadata", "{\"identified\":true}"], ["service_name", "test"]]
+  [1m[36mActiveStorage::Attachment Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_attachments" ("blob_id", "created_at", "name", "record_id", "record_type") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["blob_id", 1], ["created_at", "2026-07-22 00:55:31.003148"], ["name", "audio_file"], ["record_id", 1], ["record_type", "Sample"]]
+  [1m[36mSample Update (0.0ms)[0m  [1m[33mUPDATE "samples" SET "updated_at" = ? WHERE "samples"."id" = ?[0m  [["updated_at", "2026-07-22 00:55:31.003327"], ["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+[36m  Disk Storage (0.4ms) [0m[32mUploaded file to key: 88lwil3vsoamxjz3ldup9xy8qhig (checksum: gva2yXXxx7rSengUt5Ipag==)[0m
+[ActiveJob] Enqueued ActiveStorage::AnalyzeJob (Job ID: c9d8bd0c-42c0-4659-92e7-96a5cddf0044) to Test(default) with arguments: #<GlobalID:0x0000000123a82d60 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+Redirected to http://www.example.com/
+Completed 302 Found in 12ms (ActiveRecord: 0.3ms (7 queries, 0 cached) | GC: 8.2ms)
+  [1m[36mSample Load (0.0ms)[0m  [1m[34mSELECT "samples".* FROM "samples" WHERE "samples"."user_id" = ? ORDER BY "samples"."id" DESC LIMIT ?[0m  [["user_id", 258008703], ["LIMIT", 1]]
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+Started DELETE "/samples/1" for 127.0.0.1 at 2026-07-21 17:55:31 -0700
+Processing by SamplesController#destroy as HTML
+  Parameters: {"id" => "1"}
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mSample Load (0.0ms)[0m  [1m[34mSELECT "samples".* FROM "samples" WHERE "samples"."user_id" = ? AND "samples"."id" = ? LIMIT ?[0m  [["user_id", 258008703], ["id", 1], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mActiveStorage::Attachment Load (0.1ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Attachment Destroy (0.0ms)[0m  [1m[31mDELETE FROM "active_storage_attachments" WHERE "active_storage_attachments"."id" = ?[0m  [["id", 1]]
+  [1m[36mSample Destroy (0.0ms)[0m  [1m[31mDELETE FROM "samples" WHERE "samples"."id" = ?[0m  [["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+  [1m[36mActiveStorage::Blob Load (0.0ms)[0m  [1m[34mSELECT "active_storage_blobs".* FROM "active_storage_blobs" WHERE "active_storage_blobs"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+[ActiveJob] Enqueued ActiveStorage::PurgeJob (Job ID: 75eb2990-fdc1-4760-ab6c-ef867ae5f770) to Test(default) with arguments: #<GlobalID:0x00000001244c0188 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+Redirected to http://www.example.com/
+Completed 302 Found in 2ms (ActiveRecord: 0.2ms (7 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+----------------------------------------------------------
+SamplesControllerTest: test_create_requires_authentication
+----------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+Started POST "/samples" for 127.0.0.1 at 2026-07-21 17:55:31 -0700
+Processing by SamplesController#create as HTML
+  Parameters: {"audio_file" => #<ActionDispatch::Http::UploadedFile:0x0000000129930010 @tempfile=#<Tempfile:/var/folders/jp/ncl51rb16h1db0zysgj1_ph40000gn/T/RackMultipart20260721-2816-y6vm2v.wav>, @content_type="audio/wav", @original_filename="tone.wav", @headers="content-disposition: form-data; name=\"audio_file\"; filename=\"tone.wav\"\r\ncontent-type: audio/wav\r\ncontent-length: 9644\r\n">}
+Redirected to http://www.example.com/session/new
+Filter chain halted as :require_authentication rendered or redirected
+Completed 302 Found in 0ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mCACHE Sample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+----------------------------------------------------------------------
+SamplesControllerTest: test_destroy_cannot_touch_another_user's_sample
+----------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:31.010962"], ["ip_address", nil], ["updated_at", "2026-07-22 00:55:31.010962"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Started POST "/samples" for 127.0.0.1 at 2026-07-21 17:55:31 -0700
+Processing by SamplesController#create as HTML
+  Parameters: {"name" => "Mine", "audio_file" => #<ActionDispatch::Http::UploadedFile:0x000000012a434e20 @tempfile=#<Tempfile:/var/folders/jp/ncl51rb16h1db0zysgj1_ph40000gn/T/RackMultipart20260721-2816-q02iap.wav>, @content_type="audio/wav", @original_filename="tone.wav", @headers="content-disposition: form-data; name=\"audio_file\"; filename=\"tone.wav\"\r\ncontent-type: audio/wav\r\ncontent-length: 9644\r\n">}
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSample Create (0.1ms)[0m  [1m[32mINSERT INTO "samples" ("created_at", "name", "updated_at", "user_id") VALUES (?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:31.013093"], ["name", "Mine"], ["updated_at", "2026-07-22 00:55:31.013093"], ["user_id", 258008703]]
+  [1m[36mActiveStorage::Attachment Load (0.0ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Blob Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_blobs" ("byte_size", "checksum", "content_type", "created_at", "filename", "key", "metadata", "service_name") VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING "id"[0m  [["byte_size", 9644], ["checksum", "gva2yXXxx7rSengUt5Ipag=="], ["content_type", "audio/x-wav"], ["created_at", "2026-07-22 00:55:31.013622"], ["filename", "tone.wav"], ["key", "w82vamzr1ym1glks9g7m1pcwclfi"], ["metadata", "{\"identified\":true}"], ["service_name", "test"]]
+  [1m[36mActiveStorage::Attachment Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_attachments" ("blob_id", "created_at", "name", "record_id", "record_type") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["blob_id", 1], ["created_at", "2026-07-22 00:55:31.013807"], ["name", "audio_file"], ["record_id", 1], ["record_type", "Sample"]]
+  [1m[36mSample Update (0.0ms)[0m  [1m[33mUPDATE "samples" SET "updated_at" = ? WHERE "samples"."id" = ?[0m  [["updated_at", "2026-07-22 00:55:31.013983"], ["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+[36m  Disk Storage (0.3ms) [0m[32mUploaded file to key: w82vamzr1ym1glks9g7m1pcwclfi (checksum: gva2yXXxx7rSengUt5Ipag==)[0m
+[ActiveJob] Enqueued ActiveStorage::AnalyzeJob (Job ID: 7ed8c670-7b7d-4ea2-9156-a9b47e7d59d7) to Test(default) with arguments: #<GlobalID:0x000000012949fa50 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+Redirected to http://www.example.com/
+Completed 302 Found in 3ms (ActiveRecord: 0.2ms (7 queries, 0 cached) | GC: 0.1ms)
+  [1m[36mSample Load (0.0ms)[0m  [1m[34mSELECT "samples".* FROM "samples" WHERE "samples"."user_id" = ? ORDER BY "samples"."id" DESC LIMIT ?[0m  [["user_id", 258008703], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 425211171], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:31.015589"], ["ip_address", nil], ["updated_at", "2026-07-22 00:55:31.015589"], ["user_agent", nil], ["user_id", 425211171]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+Started DELETE "/samples/1" for 127.0.0.1 at 2026-07-21 17:55:31 -0700
+Processing by SamplesController#destroy as HTML
+  Parameters: {"id" => "1"}
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 2], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 425211171], ["LIMIT", 1]]
+  [1m[36mSample Load (0.0ms)[0m  [1m[34mSELECT "samples".* FROM "samples" WHERE "samples"."user_id" = ? AND "samples"."id" = ? LIMIT ?[0m  [["user_id", 425211171], ["id", 1], ["LIMIT", 1]]
+Completed 404 Not Found in 1ms (ActiveRecord: 0.1ms (3 queries, 0 cached) | GC: 0.0ms)
+  
+ActiveRecord::RecordNotFound (Couldn't find Sample with 'id'="1" [WHERE "samples"."user_id" = ?]):
+  
+app/controllers/samples_controller.rb:13:in 'SamplesController#destroy'
+test/controllers/samples_controller_test.rb:60:in 'block (2 levels) in <class:SamplesControllerTest>'
+test/controllers/samples_controller_test.rb:59:in 'block in <class:SamplesControllerTest>'
+  [1m[36mCACHE Sample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------------
+SamplesControllerTest: test_destroy_requires_authentication
+-----------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started DELETE "/samples/1" for 127.0.0.1 at 2026-07-21 17:55:31 -0700
+Processing by SamplesController#destroy as HTML
+  Parameters: {"id" => "1"}
+Redirected to http://www.example.com/session/new
+Filter chain halted as :require_authentication rendered or redirected
+Completed 302 Found in 0ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+----------------------------------------------------------------------------------------
+SamplesControllerTest: test_create_attaches_an_uploaded_audio_file_to_the_signed-in_user
+----------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:31.114291"], ["ip_address", nil], ["updated_at", "2026-07-22 00:55:31.114291"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples" WHERE "samples"."user_id" = ?[0m  [["user_id", 258008703]]
+Started POST "/samples" for 127.0.0.1 at 2026-07-21 17:55:31 -0700
+Processing by SamplesController#create as HTML
+  Parameters: {"name" => "Warm pad", "audio_file" => #<ActionDispatch::Http::UploadedFile:0x000000012d3c9bb8 @tempfile=#<Tempfile:/var/folders/jp/ncl51rb16h1db0zysgj1_ph40000gn/T/RackMultipart20260721-2816-pantge.wav>, @content_type="audio/wav", @original_filename="tone.wav", @headers="content-disposition: form-data; name=\"audio_file\"; filename=\"tone.wav\"\r\ncontent-type: audio/wav\r\ncontent-length: 9644\r\n">}
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSample Create (0.1ms)[0m  [1m[32mINSERT INTO "samples" ("created_at", "name", "updated_at", "user_id") VALUES (?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:31.116518"], ["name", "Warm pad"], ["updated_at", "2026-07-22 00:55:31.116518"], ["user_id", 258008703]]
+  [1m[36mActiveStorage::Attachment Load (0.0ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Blob Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_blobs" ("byte_size", "checksum", "content_type", "created_at", "filename", "key", "metadata", "service_name") VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING "id"[0m  [["byte_size", 9644], ["checksum", "gva2yXXxx7rSengUt5Ipag=="], ["content_type", "audio/x-wav"], ["created_at", "2026-07-22 00:55:31.117094"], ["filename", "tone.wav"], ["key", "9j9vji72m80k6496hnmpmzzx2fkc"], ["metadata", "{\"identified\":true}"], ["service_name", "test"]]
+  [1m[36mActiveStorage::Attachment Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_attachments" ("blob_id", "created_at", "name", "record_id", "record_type") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["blob_id", 1], ["created_at", "2026-07-22 00:55:31.117306"], ["name", "audio_file"], ["record_id", 1], ["record_type", "Sample"]]
+  [1m[36mSample Update (0.0ms)[0m  [1m[33mUPDATE "samples" SET "updated_at" = ? WHERE "samples"."id" = ?[0m  [["updated_at", "2026-07-22 00:55:31.117472"], ["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+[36m  Disk Storage (0.2ms) [0m[32mUploaded file to key: 9j9vji72m80k6496hnmpmzzx2fkc (checksum: gva2yXXxx7rSengUt5Ipag==)[0m
+[ActiveJob] Enqueued ActiveStorage::AnalyzeJob (Job ID: 5caa7cb3-e912-4721-86f7-9f55980a72cb) to Test(default) with arguments: #<GlobalID:0x000000012d44df30 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+Redirected to http://www.example.com/
+Completed 302 Found in 3ms (ActiveRecord: 0.2ms (7 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples" WHERE "samples"."user_id" = ?[0m  [["user_id", 258008703]]
+  [1m[36mSample Load (0.0ms)[0m  [1m[34mSELECT "samples".* FROM "samples" WHERE "samples"."user_id" = ? ORDER BY "samples"."id" DESC LIMIT ?[0m  [["user_id", 258008703], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Attachment Load (0.0ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------------------
+SamplesControllerTest: test_create_rejects_a_non-audio_upload
+-------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:31.119647"], ["ip_address", nil], ["updated_at", "2026-07-22 00:55:31.119647"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+Started POST "/samples" for 127.0.0.1 at 2026-07-21 17:55:31 -0700
+Processing by SamplesController#create as HTML
+  Parameters: {"audio_file" => #<ActionDispatch::Http::UploadedFile:0x000000012d48da40 @tempfile=#<Tempfile:/var/folders/jp/ncl51rb16h1db0zysgj1_ph40000gn/T/RackMultipart20260721-2816-h28owf.txt>, @content_type="text/plain", @original_filename="not_audio.txt", @headers="content-disposition: form-data; name=\"audio_file\"; filename=\"not_audio.txt\"\r\ncontent-type: text/plain\r\ncontent-length: 18\r\n">}
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Redirected to http://www.example.com/
+Completed 302 Found in 2ms (ActiveRecord: 0.0ms (2 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mCACHE Sample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mActiveRecord::InternalMetadata Load (0.1ms)[0m  [1m[34mSELECT * FROM "ar_internal_metadata" WHERE "ar_internal_metadata"."key" = ? ORDER BY "ar_internal_metadata"."key" ASC LIMIT 1[0m  [[nil, "schema_sha1"]]
+  [1m[36mActiveRecord::SchemaMigration Load (0.0ms)[0m  [1m[34mSELECT "schema_migrations"."version" FROM "schema_migrations" ORDER BY "schema_migrations"."version" ASC[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN immediate TRANSACTION[0m
+  [1m[35m (0.1ms)[0m  [1m[35mPRAGMA foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = ON[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = OFF[0m
+  [1m[36mFixtures Load (0.1ms)[0m  [1m[31mDELETE FROM "users";
+INSERT INTO "users" ("id", "created_at", "email_address", "password_digest", "updated_at") VALUES (258008703, '2026-07-22 00:55:38.821995', 'owner@example.com', '$2a$12$5zWD99bvsgnBtdAuGnyBr.HUHQtWsV2izAjzacDPQPie1rvUElT/y', '2026-07-22 00:55:38.821995'), (425211171, '2026-07-22 00:55:38.821995', 'other@example.com', '$2a$12$5zWD99bvsgnBtdAuGnyBr.HUHQtWsV2izAjzacDPQPie1rvUElT/y', '2026-07-22 00:55:38.821995')[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = 0[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = 1[0m
+  [1m[36mTRANSACTION (0.2ms)[0m  [1m[36mCOMMIT TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_key_check[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+------------------------------------------------------
+SampleTest: test_invalid_when_larger_than_the_size_cap
+------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+------------------------------------------------------
+SampleTest: test_invalid_with_a_non-audio_content_type
+------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+------------------------------------------------
+SampleTest: test_valid_with_an_attached_wav_file
+------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+----------------------------------------------
+SampleTest: test_invalid_without_an_attachment
+----------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------
+SampleTest: test_derives_blank_name_from_the_filename
+-----------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------
+SampleTest: test_destroy_purges_the_attached_blob
+-------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSample Create (0.1ms)[0m  [1m[32mINSERT INTO "samples" ("created_at", "name", "updated_at", "user_id") VALUES (?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:55:38.843685"], ["name", "Purge me"], ["updated_at", "2026-07-22 00:55:38.843685"], ["user_id", 258008703]]
+  [1m[36mActiveStorage::Attachment Load (0.0ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Blob Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_blobs" ("byte_size", "checksum", "content_type", "created_at", "filename", "key", "metadata", "service_name") VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING "id"[0m  [["byte_size", 9644], ["checksum", "gva2yXXxx7rSengUt5Ipag=="], ["content_type", "audio/x-wav"], ["created_at", "2026-07-22 00:55:38.845079"], ["filename", "tone.wav"], ["key", "q8hfklpebq6ffdcx9kcuyvmy9gda"], ["metadata", "{\"identified\":true}"], ["service_name", "test"]]
+  [1m[36mActiveStorage::Attachment Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_attachments" ("blob_id", "created_at", "name", "record_id", "record_type") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["blob_id", 1], ["created_at", "2026-07-22 00:55:38.845319"], ["name", "audio_file"], ["record_id", 1], ["record_type", "Sample"]]
+  [1m[36mSample Update (0.0ms)[0m  [1m[33mUPDATE "samples" SET "updated_at" = ? WHERE "samples"."id" = ?[0m  [["updated_at", "2026-07-22 00:55:38.845716"], ["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+[36m  Disk Storage (0.4ms) [0m[32mUploaded file to key: q8hfklpebq6ffdcx9kcuyvmy9gda (checksum: gva2yXXxx7rSengUt5Ipag==)[0m
+[ActiveJob] Enqueued ActiveStorage::AnalyzeJob (Job ID: 53985280-7cba-4bc9-90c0-9b00389808d0) to Test(default) with arguments: #<GlobalID:0x000000012b411258 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mActiveRecord::InternalMetadata Load (0.1ms)[0m  [1m[34mSELECT * FROM "ar_internal_metadata" WHERE "ar_internal_metadata"."key" = ? ORDER BY "ar_internal_metadata"."key" ASC LIMIT 1[0m  [[nil, "schema_sha1"]]
+  [1m[36mActiveRecord::SchemaMigration Load (0.0ms)[0m  [1m[34mSELECT "schema_migrations"."version" FROM "schema_migrations" ORDER BY "schema_migrations"."version" ASC[0m
+  [1m[36mActiveRecord::InternalMetadata Load (0.1ms)[0m  [1m[34mSELECT * FROM "ar_internal_metadata" WHERE "ar_internal_metadata"."key" = ? ORDER BY "ar_internal_metadata"."key" ASC LIMIT 1[0m  [[nil, "schema_sha1"]]
+  [1m[36mActiveRecord::SchemaMigration Load (0.0ms)[0m  [1m[34mSELECT "schema_migrations"."version" FROM "schema_migrations" ORDER BY "schema_migrations"."version" ASC[0m
+  [1m[36mActiveRecord::InternalMetadata Load (0.1ms)[0m  [1m[34mSELECT * FROM "ar_internal_metadata" WHERE "ar_internal_metadata"."key" = ? ORDER BY "ar_internal_metadata"."key" ASC LIMIT 1[0m  [[nil, "schema_sha1"]]
+  [1m[36mActiveRecord::SchemaMigration Load (0.0ms)[0m  [1m[34mSELECT "schema_migrations"."version" FROM "schema_migrations" ORDER BY "schema_migrations"."version" ASC[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN immediate TRANSACTION[0m
+  [1m[35m (0.2ms)[0m  [1m[35mPRAGMA foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = ON[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = OFF[0m
+  [1m[36mFixtures Load (0.1ms)[0m  [1m[31mDELETE FROM "users";
+INSERT INTO "users" ("id", "created_at", "email_address", "password_digest", "updated_at") VALUES (258008703, '2026-07-22 00:56:19.381521', 'owner@example.com', '$2a$12$IJsRQEcYMvYK0OFFFi9J5eubQ9VpCwtS/cXD81PiBp9lHEyh/dilK', '2026-07-22 00:56:19.381521'), (425211171, '2026-07-22 00:56:19.381521', 'other@example.com', '$2a$12$IJsRQEcYMvYK0OFFFi9J5eubQ9VpCwtS/cXD81PiBp9lHEyh/dilK', '2026-07-22 00:56:19.381521')[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = 0[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = 1[0m
+  [1m[36mTRANSACTION (0.6ms)[0m  [1m[36mCOMMIT TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_key_check[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+--------------------------------------------------------------------------------------------
+IsolationHeadersTest: test_authenticated_page_responses_carry_cross-origin_isolation_headers
+--------------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.1ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.2ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:56:19.404739"], ["ip_address", nil], ["updated_at", "2026-07-22 00:56:19.404739"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Started GET "/" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by InertiaExampleController#index as HTML
+  [1m[36mSession Load (0.1ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  Rendering layout layouts/application.html.erb
+  Rendering /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application
+  Rendered /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application (Duration: 0.2ms | GC: 0.0ms)
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+  Rendered layout layouts/application.html.erb (Duration: 5.0ms | GC: 0.7ms)
+Completed 200 OK in 18ms (Views: 10.4ms | ActiveRecord: 0.1ms (1 query, 0 cached) | GC: 4.5ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------------------------------------------
+IsolationHeadersTest: test_login_page_response_carries_cross-origin_isolation_headers
+-------------------------------------------------------------------------------------
+Started GET "/session/new" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SessionsController#new as HTML
+  Rendering layout layouts/application.html.erb
+  Rendering /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application
+  Rendered /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application (Duration: 0.0ms | GC: 0.0ms)
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+  Rendered layout layouts/application.html.erb (Duration: 0.7ms | GC: 0.0ms)
+Completed 200 OK in 1ms (Views: 1.2ms | ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------
+UserTest: test_downcases_and_strips_email_address
+-------------------------------------------------
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+----------------------------------------------------------
+SamplesControllerTest: test_create_requires_authentication
+----------------------------------------------------------
+  [1m[36mUser Load (0.1ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mSample Count (0.1ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+Started POST "/samples" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SamplesController#create as HTML
+  Parameters: {"audio_file" => #<ActionDispatch::Http::UploadedFile:0x00000001295b3810 @tempfile=#<Tempfile:/var/folders/jp/ncl51rb16h1db0zysgj1_ph40000gn/T/RackMultipart20260721-3169-oqz8em.wav>, @content_type="audio/wav", @original_filename="tone.wav", @headers="content-disposition: form-data; name=\"audio_file\"; filename=\"tone.wav\"\r\ncontent-type: audio/wav\r\ncontent-length: 9644\r\n">}
+Redirected to http://www.example.com/session/new
+Filter chain halted as :require_authentication rendered or redirected
+Completed 302 Found in 0ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mCACHE Sample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+----------------------------------------------------------------------------------------
+SamplesControllerTest: test_create_attaches_an_uploaded_audio_file_to_the_signed-in_user
+----------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.1ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:56:19.468020"], ["ip_address", nil], ["updated_at", "2026-07-22 00:56:19.468020"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples" WHERE "samples"."user_id" = ?[0m  [["user_id", 258008703]]
+Started POST "/samples" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SamplesController#create as HTML
+  Parameters: {"name" => "Warm pad", "audio_file" => #<ActionDispatch::Http::UploadedFile:0x000000012945a068 @tempfile=#<Tempfile:/var/folders/jp/ncl51rb16h1db0zysgj1_ph40000gn/T/RackMultipart20260721-3169-9s287g.wav>, @content_type="audio/wav", @original_filename="tone.wav", @headers="content-disposition: form-data; name=\"audio_file\"; filename=\"tone.wav\"\r\ncontent-type: audio/wav\r\ncontent-length: 9644\r\n">}
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSample Create (0.1ms)[0m  [1m[32mINSERT INTO "samples" ("created_at", "name", "updated_at", "user_id") VALUES (?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:56:19.477867"], ["name", "Warm pad"], ["updated_at", "2026-07-22 00:56:19.477867"], ["user_id", 258008703]]
+  [1m[36mActiveStorage::Attachment Load (0.0ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Blob Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_blobs" ("byte_size", "checksum", "content_type", "created_at", "filename", "key", "metadata", "service_name") VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING "id"[0m  [["byte_size", 9644], ["checksum", "gva2yXXxx7rSengUt5Ipag=="], ["content_type", "audio/x-wav"], ["created_at", "2026-07-22 00:56:19.478728"], ["filename", "tone.wav"], ["key", "kgcxceq7zd99wsxeqgx2wohdldw1"], ["metadata", "{\"identified\":true}"], ["service_name", "test"]]
+  [1m[36mActiveStorage::Attachment Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_attachments" ("blob_id", "created_at", "name", "record_id", "record_type") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["blob_id", 1], ["created_at", "2026-07-22 00:56:19.478956"], ["name", "audio_file"], ["record_id", 1], ["record_type", "Sample"]]
+  [1m[36mSample Update (0.0ms)[0m  [1m[33mUPDATE "samples" SET "updated_at" = ? WHERE "samples"."id" = ?[0m  [["updated_at", "2026-07-22 00:56:19.479152"], ["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+[36m  Disk Storage (0.4ms) [0m[32mUploaded file to key: kgcxceq7zd99wsxeqgx2wohdldw1 (checksum: gva2yXXxx7rSengUt5Ipag==)[0m
+[ActiveJob] Enqueued ActiveStorage::AnalyzeJob (Job ID: 58f5e7eb-5967-47a4-8287-4b6858d3e91d) to Test(default) with arguments: #<GlobalID:0x0000000129cb1108 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+Redirected to http://www.example.com/
+Completed 302 Found in 11ms (ActiveRecord: 0.5ms (7 queries, 0 cached) | GC: 0.7ms)
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples" WHERE "samples"."user_id" = ?[0m  [["user_id", 258008703]]
+  [1m[36mSample Load (0.0ms)[0m  [1m[34mSELECT "samples".* FROM "samples" WHERE "samples"."user_id" = ? ORDER BY "samples"."id" DESC LIMIT ?[0m  [["user_id", 258008703], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Attachment Load (0.0ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+----------------------------------------------------------------------
+SamplesControllerTest: test_destroy_cannot_touch_another_user's_sample
+----------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:56:19.482771"], ["ip_address", nil], ["updated_at", "2026-07-22 00:56:19.482771"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Started POST "/samples" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SamplesController#create as HTML
+  Parameters: {"name" => "Mine", "audio_file" => #<ActionDispatch::Http::UploadedFile:0x0000000129cde928 @tempfile=#<Tempfile:/var/folders/jp/ncl51rb16h1db0zysgj1_ph40000gn/T/RackMultipart20260721-3169-9lt442.wav>, @content_type="audio/wav", @original_filename="tone.wav", @headers="content-disposition: form-data; name=\"audio_file\"; filename=\"tone.wav\"\r\ncontent-type: audio/wav\r\ncontent-length: 9644\r\n">}
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSample Create (0.1ms)[0m  [1m[32mINSERT INTO "samples" ("created_at", "name", "updated_at", "user_id") VALUES (?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:56:19.484844"], ["name", "Mine"], ["updated_at", "2026-07-22 00:56:19.484844"], ["user_id", 258008703]]
+  [1m[36mActiveStorage::Attachment Load (0.0ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Blob Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_blobs" ("byte_size", "checksum", "content_type", "created_at", "filename", "key", "metadata", "service_name") VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING "id"[0m  [["byte_size", 9644], ["checksum", "gva2yXXxx7rSengUt5Ipag=="], ["content_type", "audio/x-wav"], ["created_at", "2026-07-22 00:56:19.485412"], ["filename", "tone.wav"], ["key", "sei4csj3zm6n96py830d3zecmy98"], ["metadata", "{\"identified\":true}"], ["service_name", "test"]]
+  [1m[36mActiveStorage::Attachment Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_attachments" ("blob_id", "created_at", "name", "record_id", "record_type") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["blob_id", 1], ["created_at", "2026-07-22 00:56:19.485607"], ["name", "audio_file"], ["record_id", 1], ["record_type", "Sample"]]
+  [1m[36mSample Update (0.0ms)[0m  [1m[33mUPDATE "samples" SET "updated_at" = ? WHERE "samples"."id" = ?[0m  [["updated_at", "2026-07-22 00:56:19.485753"], ["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+[36m  Disk Storage (0.3ms) [0m[32mUploaded file to key: sei4csj3zm6n96py830d3zecmy98 (checksum: gva2yXXxx7rSengUt5Ipag==)[0m
+[ActiveJob] Enqueued ActiveStorage::AnalyzeJob (Job ID: 512e6e2e-cdd0-4fc4-a5e4-16a2b149a7c3) to Test(default) with arguments: #<GlobalID:0x0000000129a59130 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+Redirected to http://www.example.com/
+Completed 302 Found in 3ms (ActiveRecord: 0.2ms (7 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mSample Load (0.0ms)[0m  [1m[34mSELECT "samples".* FROM "samples" WHERE "samples"."user_id" = ? ORDER BY "samples"."id" DESC LIMIT ?[0m  [["user_id", 258008703], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 425211171], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:56:19.487391"], ["ip_address", nil], ["updated_at", "2026-07-22 00:56:19.487391"], ["user_agent", nil], ["user_id", 425211171]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+Started DELETE "/samples/1" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SamplesController#destroy as HTML
+  Parameters: {"id" => "1"}
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 2], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 425211171], ["LIMIT", 1]]
+  [1m[36mSample Load (0.0ms)[0m  [1m[34mSELECT "samples".* FROM "samples" WHERE "samples"."user_id" = ? AND "samples"."id" = ? LIMIT ?[0m  [["user_id", 425211171], ["id", 1], ["LIMIT", 1]]
+Completed 404 Not Found in 1ms (ActiveRecord: 0.1ms (3 queries, 0 cached) | GC: 0.0ms)
+  
+ActiveRecord::RecordNotFound (Couldn't find Sample with 'id'="1" [WHERE "samples"."user_id" = ?]):
+  
+app/controllers/samples_controller.rb:13:in 'SamplesController#destroy'
+test/controllers/samples_controller_test.rb:60:in 'block (2 levels) in <class:SamplesControllerTest>'
+test/controllers/samples_controller_test.rb:59:in 'block in <class:SamplesControllerTest>'
+  [1m[36mCACHE Sample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------------
+SamplesControllerTest: test_destroy_requires_authentication
+-----------------------------------------------------------
+  [1m[36mUser Load (0.1ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started DELETE "/samples/1" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SamplesController#destroy as HTML
+  Parameters: {"id" => "1"}
+Redirected to http://www.example.com/session/new
+Filter chain halted as :require_authentication rendered or redirected
+Completed 302 Found in 0ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------------------
+SamplesControllerTest: test_destroy_removes_the_user's_own_sample
+-----------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:56:19.561990"], ["ip_address", nil], ["updated_at", "2026-07-22 00:56:19.561990"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Started POST "/samples" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SamplesController#create as HTML
+  Parameters: {"name" => "Doomed", "audio_file" => #<ActionDispatch::Http::UploadedFile:0x000000012a0796a0 @tempfile=#<Tempfile:/var/folders/jp/ncl51rb16h1db0zysgj1_ph40000gn/T/RackMultipart20260721-3169-d28q9x.wav>, @content_type="audio/wav", @original_filename="tone.wav", @headers="content-disposition: form-data; name=\"audio_file\"; filename=\"tone.wav\"\r\ncontent-type: audio/wav\r\ncontent-length: 9644\r\n">}
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSample Create (0.1ms)[0m  [1m[32mINSERT INTO "samples" ("created_at", "name", "updated_at", "user_id") VALUES (?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:56:19.564605"], ["name", "Doomed"], ["updated_at", "2026-07-22 00:56:19.564605"], ["user_id", 258008703]]
+  [1m[36mActiveStorage::Attachment Load (0.0ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Blob Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_blobs" ("byte_size", "checksum", "content_type", "created_at", "filename", "key", "metadata", "service_name") VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING "id"[0m  [["byte_size", 9644], ["checksum", "gva2yXXxx7rSengUt5Ipag=="], ["content_type", "audio/x-wav"], ["created_at", "2026-07-22 00:56:19.565264"], ["filename", "tone.wav"], ["key", "qpqhqnjggpzhx7w6a1s2irpyxl9z"], ["metadata", "{\"identified\":true}"], ["service_name", "test"]]
+  [1m[36mActiveStorage::Attachment Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_attachments" ("blob_id", "created_at", "name", "record_id", "record_type") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["blob_id", 1], ["created_at", "2026-07-22 00:56:19.565478"], ["name", "audio_file"], ["record_id", 1], ["record_type", "Sample"]]
+  [1m[36mSample Update (0.0ms)[0m  [1m[33mUPDATE "samples" SET "updated_at" = ? WHERE "samples"."id" = ?[0m  [["updated_at", "2026-07-22 00:56:19.565648"], ["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+[36m  Disk Storage (0.3ms) [0m[32mUploaded file to key: qpqhqnjggpzhx7w6a1s2irpyxl9z (checksum: gva2yXXxx7rSengUt5Ipag==)[0m
+[ActiveJob] Enqueued ActiveStorage::AnalyzeJob (Job ID: 7a40aa02-ed96-44d0-a87f-474b18fd903c) to Test(default) with arguments: #<GlobalID:0x000000012a253bd8 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+Redirected to http://www.example.com/
+Completed 302 Found in 3ms (ActiveRecord: 0.3ms (7 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mSample Load (0.0ms)[0m  [1m[34mSELECT "samples".* FROM "samples" WHERE "samples"."user_id" = ? ORDER BY "samples"."id" DESC LIMIT ?[0m  [["user_id", 258008703], ["LIMIT", 1]]
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+Started DELETE "/samples/1" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SamplesController#destroy as HTML
+  Parameters: {"id" => "1"}
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mSample Load (0.0ms)[0m  [1m[34mSELECT "samples".* FROM "samples" WHERE "samples"."user_id" = ? AND "samples"."id" = ? LIMIT ?[0m  [["user_id", 258008703], ["id", 1], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mActiveStorage::Attachment Load (0.1ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Attachment Destroy (0.0ms)[0m  [1m[31mDELETE FROM "active_storage_attachments" WHERE "active_storage_attachments"."id" = ?[0m  [["id", 1]]
+  [1m[36mSample Destroy (0.0ms)[0m  [1m[31mDELETE FROM "samples" WHERE "samples"."id" = ?[0m  [["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+  [1m[36mActiveStorage::Blob Load (0.1ms)[0m  [1m[34mSELECT "active_storage_blobs".* FROM "active_storage_blobs" WHERE "active_storage_blobs"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+[ActiveJob] Enqueued ActiveStorage::PurgeJob (Job ID: 1567222a-0ae6-4967-99ef-caab7d6ff3e7) to Test(default) with arguments: #<GlobalID:0x0000000129ffc0b0 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+Redirected to http://www.example.com/
+Completed 302 Found in 2ms (ActiveRecord: 0.2ms (7 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------------------
+SamplesControllerTest: test_create_rejects_a_non-audio_upload
+-------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:56:19.570819"], ["ip_address", nil], ["updated_at", "2026-07-22 00:56:19.570819"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+  [1m[36mSample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+Started POST "/samples" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SamplesController#create as HTML
+  Parameters: {"audio_file" => #<ActionDispatch::Http::UploadedFile:0x0000000129f57cb8 @tempfile=#<Tempfile:/var/folders/jp/ncl51rb16h1db0zysgj1_ph40000gn/T/RackMultipart20260721-3169-zvlmel.txt>, @content_type="text/plain", @original_filename="not_audio.txt", @headers="content-disposition: form-data; name=\"audio_file\"; filename=\"not_audio.txt\"\r\ncontent-type: text/plain\r\ncontent-length: 18\r\n">}
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Redirected to http://www.example.com/
+Completed 302 Found in 2ms (ActiveRecord: 0.0ms (2 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mCACHE Sample Count (0.0ms)[0m  [1m[34mSELECT COUNT(*) FROM "samples"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------------------------------------
+SessionsControllerTest: test_unauthenticated_request_to_root_redirects_to_login
+-------------------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started GET "/" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by InertiaExampleController#index as HTML
+Redirected to http://www.example.com/session/new
+Filter chain halted as :require_authentication rendered or redirected
+Completed 302 Found in 0ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+----------------------------------------------------------------------------------------------------------
+SessionsControllerTest: test_create_with_invalid_credentials_re-renders_login_with_an_error_and_no_session
+----------------------------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started POST "/session" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SessionsController#create as HTML
+  Parameters: {"email_address" => "[FILTERED]", "password" => "[FILTERED]"}
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."email_address" = ? LIMIT ?[0m  [["email_address", "[FILTERED]"], ["LIMIT", 1]]
+Redirected to http://www.example.com/session/new
+Completed 302 Found in 199ms (ActiveRecord: 0.0ms (1 query, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------------------------------------------
+SessionsControllerTest: test_destroy_terminates_the_session_and_gates_subsequent_requests
+-----------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.1ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:56:19.777871"], ["ip_address", nil], ["updated_at", "2026-07-22 00:56:19.777871"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Started DELETE "/session" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SessionsController#destroy as HTML
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Destroy (0.1ms)[0m  [1m[31mDELETE FROM "sessions" WHERE "sessions"."id" = ?[0m  [["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Redirected to http://www.example.com/session/new
+Completed 303 See Other in 0ms (ActiveRecord: 0.1ms (2 queries, 0 cached) | GC: 0.0ms)
+Started GET "/" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by InertiaExampleController#index as HTML
+Redirected to http://www.example.com/session/new
+Filter chain halted as :require_authentication rendered or redirected
+Completed 302 Found in 0ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------------
+SessionsControllerTest: test_new_renders_the_login_page
+-------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started GET "/session/new" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SessionsController#new as HTML
+  Rendering layout layouts/application.html.erb
+  Rendering /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application
+  Rendered /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application (Duration: 0.1ms | GC: 0.0ms)
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+  Rendered layout layouts/application.html.erb (Duration: 0.9ms | GC: 0.0ms)
+Completed 200 OK in 1ms (Views: 1.2ms | ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------------------------------------------
+SessionsControllerTest: test_create_with_valid_credentials_signs_in_and_redirects_to_root
+-----------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started POST "/session" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by SessionsController#create as HTML
+  Parameters: {"email_address" => "[FILTERED]", "password" => "[FILTERED]"}
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."email_address" = ? LIMIT ?[0m  [["email_address", "[FILTERED]"], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.2ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:56:19.975138"], ["ip_address", "127.0.0.1"], ["updated_at", "2026-07-22 00:56:19.975138"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Redirected to http://www.example.com/
+Completed 302 Found in 194ms (ActiveRecord: 0.3ms (2 queries, 0 cached) | GC: 0.0ms)
+Started GET "/" for 127.0.0.1 at 2026-07-21 17:56:19 -0700
+Processing by InertiaExampleController#index as HTML
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  Rendering layout layouts/application.html.erb
+  Rendering /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application
+  Rendered /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application (Duration: 0.1ms | GC: 0.0ms)
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:55:30
+  Rendered layout layouts/application.html.erb (Duration: 1.6ms | GC: 0.0ms)
+Completed 200 OK in 2ms (Views: 1.9ms | ActiveRecord: 0.0ms (1 query, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+------------------------------------------------------
+SampleTest: test_invalid_when_larger_than_the_size_cap
+------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------
+SampleTest: test_derives_blank_name_from_the_filename
+-----------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+------------------------------------------------------
+SampleTest: test_invalid_with_a_non-audio_content_type
+------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+------------------------------------------------
+SampleTest: test_valid_with_an_attached_wav_file
+------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+----------------------------------------------
+SampleTest: test_invalid_without_an_attachment
+----------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------
+SampleTest: test_destroy_purges_the_attached_blob
+-------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSample Create (0.1ms)[0m  [1m[32mINSERT INTO "samples" ("created_at", "name", "updated_at", "user_id") VALUES (?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:56:19.993041"], ["name", "Purge me"], ["updated_at", "2026-07-22 00:56:19.993041"], ["user_id", 258008703]]
+  [1m[36mActiveStorage::Attachment Load (0.0ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "Sample"], ["name", "audio_file"], ["LIMIT", 1]]
+  [1m[36mActiveStorage::Blob Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_blobs" ("byte_size", "checksum", "content_type", "created_at", "filename", "key", "metadata", "service_name") VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING "id"[0m  [["byte_size", 9644], ["checksum", "gva2yXXxx7rSengUt5Ipag=="], ["content_type", "audio/x-wav"], ["created_at", "2026-07-22 00:56:19.993709"], ["filename", "tone.wav"], ["key", "6iz5s8kr77vszpclzm02cwncs7u9"], ["metadata", "{\"identified\":true}"], ["service_name", "test"]]
+  [1m[36mActiveStorage::Attachment Create (0.0ms)[0m  [1m[32mINSERT INTO "active_storage_attachments" ("blob_id", "created_at", "name", "record_id", "record_type") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["blob_id", 1], ["created_at", "2026-07-22 00:56:19.993925"], ["name", "audio_file"], ["record_id", 1], ["record_type", "Sample"]]
+  [1m[36mSample Update (0.0ms)[0m  [1m[33mUPDATE "samples" SET "updated_at" = ? WHERE "samples"."id" = ?[0m  [["updated_at", "2026-07-22 00:56:19.994117"], ["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+[36m  Disk Storage (0.8ms) [0m[32mUploaded file to key: 6iz5s8kr77vszpclzm02cwncs7u9 (checksum: gva2yXXxx7rSengUt5Ipag==)[0m
+[ActiveJob] Enqueued ActiveStorage::AnalyzeJob (Job ID: 2950a17c-93dc-4bdf-b6b5-ac3652f3c18a) to Test(default) with arguments: #<GlobalID:0x0000000128ad9980 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mActiveStorage::Attachment Destroy (0.0ms)[0m  [1m[31mDELETE FROM "active_storage_attachments" WHERE "active_storage_attachments"."id" = ?[0m  [["id", 1]]
+  [1m[36mSample Destroy (0.0ms)[0m  [1m[31mDELETE FROM "samples" WHERE "samples"."id" = ?[0m  [["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+[ActiveJob] [ActiveStorage::PurgeJob] [02032550-82df-4589-a3de-de97c1c8b707]   [1m[36mActiveStorage::Blob Load (0.0ms)[0m  [1m[34mSELECT "active_storage_blobs".* FROM "active_storage_blobs" WHERE "active_storage_blobs"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+[ActiveJob] [ActiveStorage::PurgeJob] [02032550-82df-4589-a3de-de97c1c8b707] Performing ActiveStorage::PurgeJob (Job ID: 02032550-82df-4589-a3de-de97c1c8b707) from Test(default) enqueued at 2026-07-22T00:56:19.996051000Z with arguments: #<GlobalID:0x00000001289b5478 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+[ActiveJob] [ActiveStorage::PurgeJob] [02032550-82df-4589-a3de-de97c1c8b707]   [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+[ActiveJob] [ActiveStorage::PurgeJob] [02032550-82df-4589-a3de-de97c1c8b707]   [1m[36mActiveStorage::Attachment Exists? (0.1ms)[0m  [1m[34mSELECT 1 AS one FROM "active_storage_attachments" WHERE "active_storage_attachments"."blob_id" = ? LIMIT ?[0m  [["blob_id", 1], ["LIMIT", 1]]
+[ActiveJob] [ActiveStorage::PurgeJob] [02032550-82df-4589-a3de-de97c1c8b707]   [1m[36mActiveStorage::VariantRecord Load (0.0ms)[0m  [1m[34mSELECT "active_storage_variant_records".* FROM "active_storage_variant_records" WHERE "active_storage_variant_records"."blob_id" = ?[0m  [["blob_id", 1]]
+[ActiveJob] [ActiveStorage::PurgeJob] [02032550-82df-4589-a3de-de97c1c8b707]   [1m[36mActiveStorage::Attachment Load (0.0ms)[0m  [1m[34mSELECT "active_storage_attachments".* FROM "active_storage_attachments" WHERE "active_storage_attachments"."record_id" = ? AND "active_storage_attachments"."record_type" = ? AND "active_storage_attachments"."name" = ? LIMIT ?[0m  [["record_id", 1], ["record_type", "ActiveStorage::Blob"], ["name", "preview_image"], ["LIMIT", 1]]
+[ActiveJob] [ActiveStorage::PurgeJob] [02032550-82df-4589-a3de-de97c1c8b707]   [1m[36mActiveStorage::Blob Destroy (0.0ms)[0m  [1m[31mDELETE FROM "active_storage_blobs" WHERE "active_storage_blobs"."id" = ?[0m  [["id", 1]]
+[ActiveJob] [ActiveStorage::PurgeJob] [02032550-82df-4589-a3de-de97c1c8b707]   [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+[ActiveJob] [ActiveStorage::PurgeJob] [02032550-82df-4589-a3de-de97c1c8b707] [36m  Disk Storage (0.1ms) [0m[31mDeleted file from key: 6iz5s8kr77vszpclzm02cwncs7u9[0m
+[ActiveJob] [ActiveStorage::PurgeJob] [02032550-82df-4589-a3de-de97c1c8b707] Performed ActiveStorage::PurgeJob (Job ID: 02032550-82df-4589-a3de-de97c1c8b707) from Test(default) in 4.33ms
+[ActiveJob] Enqueued ActiveStorage::PurgeJob (Job ID: 02032550-82df-4589-a3de-de97c1c8b707) to Test(default) with arguments: #<GlobalID:0x0000000128e5bdd8 @uri=#<URI::GID gid://ambient-live/ActiveStorage::Blob/1>>
+  [1m[36mActiveStorage::Blob Exists? (0.0ms)[0m  [1m[34mSELECT 1 AS one FROM "active_storage_blobs" WHERE "active_storage_blobs"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
