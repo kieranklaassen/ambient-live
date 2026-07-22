@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { AudioEngine, type ParamId } from '@/audio/audio-engine'
 import Keyboard from './keyboard'
+import MidiControls from './midi-controls'
 import ReverbControls, { DEFAULT_REVERB_SETTINGS, type ReverbSettings } from './reverb-controls'
 import SampleLibrary, { type SampleItem } from './sample-library'
 
@@ -60,6 +61,9 @@ export default function Live({ samples }: LiveProps) {
 
   const noteOn = useCallback((noteId: number, frequency: number) => {
     engineRef.current?.noteOn(noteId, frequency, 0.4)
+  }, [])
+  const midiNoteOn = useCallback((noteId: number, frequency: number, gain: number) => {
+    engineRef.current?.noteOn(noteId, frequency, gain)
   }, [])
   const noteOff = useCallback((noteId: number) => {
     engineRef.current?.noteOff(noteId)
@@ -145,6 +149,7 @@ export default function Live({ samples }: LiveProps) {
           <p className="mt-2 text-xs text-zinc-600">
             Hold keys (pointer or the marked computer keys) — releases fade into the reverb tail.
           </p>
+          <MidiControls enabled={started} onNoteOn={midiNoteOn} onNoteOff={noteOff} />
         </section>
 
         <section>

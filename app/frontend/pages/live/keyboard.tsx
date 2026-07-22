@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 
+import { midiToFrequency } from '@/audio/midi'
+
 // One octave plus the top C, C3-C4 by default — low enough to sit in
 // ambient-pad territory. Home-row keys mirror the classic DAW layout.
 const KEYS: { note: number; label: string; key: string; black: boolean }[] = [
@@ -17,10 +19,6 @@ const KEYS: { note: number; label: string; key: string; black: boolean }[] = [
   { note: 59, label: 'B3', key: 'j', black: false },
   { note: 60, label: 'C4', key: 'k', black: false },
 ]
-
-function midiToFrequency(note: number): number {
-  return 440 * Math.pow(2, (note - 69) / 12)
-}
 
 interface KeyboardProps {
   enabled: boolean
