@@ -3,6 +3,10 @@ require "active_support/core_ext/integer/time"
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
+  # Allow Cloudflare quick-tunnel hostnames so the app can be reached remotely
+  # (defaults for localhost remain in place since we append rather than replace).
+  config.hosts << /[a-z0-9-]+\.trycloudflare\.com/
+
   # Make code changes take effect immediately without server restart.
   config.enable_reloading = true
 
