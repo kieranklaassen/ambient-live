@@ -42,7 +42,9 @@ export default function Live({ samples }: LiveProps) {
     let frame = 0
     const poll = () => {
       const engine = engineRef.current
-      if (engine) setLevel(engine.outputLevel())
+      // Quantize so idle/steady frames set an identical value and React
+      // skips the re-render instead of updating at 60fps.
+      if (engine) setLevel(Math.round(engine.outputLevel() * 200) / 200)
       frame = requestAnimationFrame(poll)
     }
     frame = requestAnimationFrame(poll)
@@ -103,6 +105,7 @@ export default function Live({ samples }: LiveProps) {
               <div
                 data-testid="output-meter"
                 data-level={level.toFixed(3)}
+                aria-hidden="true"
                 className="h-full rounded-full bg-teal-500 transition-[width] duration-75"
                 style={{ width: `${Math.round(level * 100)}%` }}
               />

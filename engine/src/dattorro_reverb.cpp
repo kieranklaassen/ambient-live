@@ -55,7 +55,28 @@ float DattorroReverb::ModulatedAllpass<N>::process(float x, float gain) {
 }
 
 void DattorroReverb::init(float sample_rate) {
-  *this = DattorroReverb();
+  // Reset in place: the buffers total ~600KB, so materializing a temporary
+  // DattorroReverb here would overflow the (64KB default) WASM stack.
+  predelay_.clear();
+  input_lowpass_.state = 0.0f;
+  input_diffusion_1_.buffer.clear();
+  input_diffusion_2_.buffer.clear();
+  input_diffusion_3_.buffer.clear();
+  input_diffusion_4_.buffer.clear();
+  left_decay_diffusion_1_.buffer.clear();
+  left_decay_diffusion_1_.lfo_phase = 0.0f;
+  left_delay_1_.clear();
+  left_damping_.state = 0.0f;
+  left_decay_diffusion_2_.buffer.clear();
+  left_delay_2_.clear();
+  right_decay_diffusion_1_.buffer.clear();
+  right_delay_1_.clear();
+  right_damping_.state = 0.0f;
+  right_decay_diffusion_2_.buffer.clear();
+  right_delay_2_.clear();
+  left_feedback_ = 0.0f;
+  right_feedback_ = 0.0f;
+
   sample_rate_ = sample_rate;
   scale_ = sample_rate / kReferenceRate;
 

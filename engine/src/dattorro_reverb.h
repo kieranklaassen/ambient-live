@@ -32,10 +32,14 @@ class DattorroReverb {
   template <int N>
   struct DelayBuffer {
     float data[N];
-    int write_index;
+    int write_index = 0;
     static constexpr int mask = N - 1;
     static_assert((N & (N - 1)) == 0, "delay buffers are power-of-two sized");
 
+    void clear() {
+      for (int i = 0; i < N; ++i) data[i] = 0.0f;
+      write_index = 0;
+    }
     void write(float x) {
       data[write_index] = flush_denormal(x);
       write_index = (write_index + 1) & mask;
@@ -56,7 +60,7 @@ class DattorroReverb {
   template <int N>
   struct Allpass {
     DelayBuffer<N> buffer;
-    int length;
+    int length = 1;
 
     float process(float x, float gain) {
       const float delayed = buffer.read(length);
@@ -69,10 +73,10 @@ class DattorroReverb {
   template <int N>
   struct ModulatedAllpass {
     DelayBuffer<N> buffer;
-    float base_length;
-    float excursion;
-    float lfo_phase;
-    float lfo_increment;
+    float base_length = 1.0f;
+    float excursion = 0.0f;
+    float lfo_phase = 0.0f;
+    float lfo_increment = 0.0f;
 
     float process(float x, float gain);
   };
