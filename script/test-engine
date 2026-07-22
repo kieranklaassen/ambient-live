@@ -1,0 +1,15 @@
+#!/bin/bash
+# Compiles and runs the native DSP test harness (plan U3 verification).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+out_dir="tmp/engine-test"
+mkdir -p "$out_dir"
+
+c++ -std=c++17 -O2 -fno-exceptions -fno-rtti -Wall \
+  engine/test/engine_test.cpp \
+  engine/src/engine.cpp \
+  engine/src/dattorro_reverb.cpp \
+  -o "$out_dir/engine_test"
+
+"$out_dir/engine_test"

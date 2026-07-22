@@ -1,0 +1,36 @@
+#!/bin/bash
+# Builds the committed WASM artifact from the C++ core (plan KTD-7).
+# Requires Emscripten (brew install emscripten). Output has no JS glue: the
+# worklet instantiates the raw module (plan KTD-3).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+exports=(
+  engine_init
+  engine_note_on
+  engine_note_off
+  engine_set_param
+  engine_sample_buffer
+  engine_sample_capacity_frames
+  engine_sample_loaded
+  engine_sample_play
+  engine_sample_stop
+  engine_sample_playing
+  engine_process
+  engine_out_left
+  engine_out_right
+)
+exported_functions=$(printf ",_%s" "${exports[@]}")
+exported_functions=${exported_functions:1}
+
+emcc \
+  engine/src/engine.cpp \
+  engine/src/dattorro_reverb.cpp \
+  engine/src/api.cpp \
+  -std=c++17 -O3 -fno-exceptions -fno-rtti --no-entry \
+  -s "EXPORTED_FUNCTIONS=${exported_functions}" \
+  -s INITIAL_MEMORY=33554432 \
+  -s ALLOW_MEMORY_GROWTH=0 \
+  -o app/frontend/audio/engine.wasm
+
+echo "Built app/frontend/audio/engine.wasm"
