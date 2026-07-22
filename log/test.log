@@ -1,0 +1,181 @@
+  [1m[35m (0.2ms)[0m  [1m[35mDROP TABLE IF EXISTS "sessions"[0m
+  [1m[35m (0.2ms)[0m  [1m[35mCREATE TABLE "sessions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "ip_address" varchar, "updated_at" datetime(6) NOT NULL, "user_agent" varchar, "user_id" integer NOT NULL)[0m
+  [1m[35m (0.1ms)[0m  [1m[35mCREATE INDEX "index_sessions_on_user_id" ON "sessions" ("user_id")[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE IF EXISTS "users"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "users" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "email_address" varchar NOT NULL, "password_digest" varchar NOT NULL, "updated_at" datetime(6) NOT NULL)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE UNIQUE INDEX "index_users_on_email_address" ON "users" ("email_address")[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = ON[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = OFF[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN immediate TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TEMPORARY TABLE "asessions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "ip_address" varchar, "updated_at" datetime(6) NOT NULL, "user_agent" varchar, "user_id" integer NOT NULL)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE INDEX "tindex_asessions_on_user_id" ON "asessions" ("user_id")[0m
+  [1m[35mSQL (0.0ms)[0m  [1m[32mINSERT INTO "asessions" ("id","created_at","ip_address","updated_at","user_agent","user_id")
+                     SELECT "id","created_at","ip_address","updated_at","user_agent","user_id" FROM "sessions"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE "sessions"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "sessions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "ip_address" varchar, "updated_at" datetime(6) NOT NULL, "user_agent" varchar, "user_id" integer NOT NULL, CONSTRAINT "fk_rails_758836b4f0"
+FOREIGN KEY ("user_id")
+  REFERENCES "users" ("id")
+)[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE INDEX "index_sessions_on_user_id" ON "sessions" ("user_id")[0m
+  [1m[35mSQL (0.0ms)[0m  [1m[32mINSERT INTO "sessions" ("id","created_at","ip_address","updated_at","user_agent","user_id")
+                     SELECT "id","created_at","ip_address","updated_at","user_agent","user_id" FROM "asessions"[0m
+  [1m[35m (0.0ms)[0m  [1m[35mDROP TABLE "asessions"[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mCOMMIT TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = 0[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = 1[0m
+  [1m[35m (0.0ms)[0m  [1m[35mCREATE TABLE "schema_migrations" ("version" varchar NOT NULL PRIMARY KEY)[0m
+  [1m[36mActiveRecord::SchemaMigration Load (0.0ms)[0m  [1m[34mSELECT "schema_migrations"."version" FROM "schema_migrations" ORDER BY "schema_migrations"."version" ASC[0m
+  [1m[35m (0.0ms)[0m  [1m[32mINSERT INTO "schema_migrations" (version) VALUES (20260722004128)[0m
+  [1m[35m (0.0ms)[0m  [1m[32mINSERT INTO "schema_migrations" (version) VALUES
+(20260722004127);[0m
+  [1m[35m (0.1ms)[0m  [1m[35mCREATE TABLE "ar_internal_metadata" ("key" varchar NOT NULL PRIMARY KEY, "value" varchar, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL)[0m
+  [1m[36mActiveRecord::InternalMetadata Load (0.0ms)[0m  [1m[34mSELECT * FROM "ar_internal_metadata" WHERE "ar_internal_metadata"."key" = ? ORDER BY "ar_internal_metadata"."key" ASC LIMIT 1[0m  [[nil, "environment"]]
+  [1m[36mActiveRecord::InternalMetadata Create (0.0ms)[0m  [1m[32mINSERT INTO "ar_internal_metadata" ("key", "value", "created_at", "updated_at") VALUES ('environment', 'test', '2026-07-22 00:42:49.510142', '2026-07-22 00:42:49.510143') RETURNING "key"[0m
+  [1m[36mActiveRecord::InternalMetadata Load (0.0ms)[0m  [1m[34mSELECT * FROM "ar_internal_metadata" WHERE "ar_internal_metadata"."key" = ? ORDER BY "ar_internal_metadata"."key" ASC LIMIT 1[0m  [[nil, "environment"]]
+  [1m[36mActiveRecord::InternalMetadata Load (0.0ms)[0m  [1m[34mSELECT * FROM "ar_internal_metadata" WHERE "ar_internal_metadata"."key" = ? ORDER BY "ar_internal_metadata"."key" ASC LIMIT 1[0m  [[nil, "schema_sha1"]]
+  [1m[36mActiveRecord::InternalMetadata Create (0.0ms)[0m  [1m[32mINSERT INTO "ar_internal_metadata" ("key", "value", "created_at", "updated_at") VALUES ('schema_sha1', '6c3ca41a9826e2f5de932291e223a42b9b65df7b', '2026-07-22 00:42:49.510445', '2026-07-22 00:42:49.510445') RETURNING "key"[0m
+  [1m[36mActiveRecord::SchemaMigration Load (0.1ms)[0m  [1m[34mSELECT "schema_migrations"."version" FROM "schema_migrations" ORDER BY "schema_migrations"."version" ASC[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN immediate TRANSACTION[0m
+  [1m[35m (0.1ms)[0m  [1m[35mPRAGMA foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = ON[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = OFF[0m
+  [1m[36mFixtures Load (0.1ms)[0m  [1m[31mDELETE FROM "users";
+INSERT INTO "users" ("id", "created_at", "email_address", "password_digest", "updated_at") VALUES (258008703, '2026-07-22 00:42:49.960509', 'owner@example.com', '$2a$12$kRvByyPJo6nKCx439RK.N.WStKUk57JEHLE8YAjR/7tdSIaGANhim', '2026-07-22 00:42:49.960509'), (425211171, '2026-07-22 00:42:49.960509', 'other@example.com', '$2a$12$kRvByyPJo6nKCx439RK.N.WStKUk57JEHLE8YAjR/7tdSIaGANhim', '2026-07-22 00:42:49.960509')[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA defer_foreign_keys = 0[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_keys = 1[0m
+  [1m[36mTRANSACTION (0.5ms)[0m  [1m[36mCOMMIT TRANSACTION[0m
+  [1m[35m (0.0ms)[0m  [1m[35mPRAGMA foreign_key_check[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------------------------------------------
+SessionsControllerTest: test_create_with_valid_credentials_signs_in_and_redirects_to_root
+-----------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.1ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started POST "/session" for 127.0.0.1 at 2026-07-21 17:42:50 -0700
+Processing by SessionsController#create as HTML
+  Parameters: {"email_address" => "[FILTERED]", "password" => "[FILTERED]"}
+  [1m[36mUser Load (0.1ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."email_address" = ? LIMIT ?[0m  [["email_address", "[FILTERED]"], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:42:50.289413"], ["ip_address", "127.0.0.1"], ["updated_at", "2026-07-22 00:42:50.289413"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Redirected to http://www.example.com/
+Completed 302 Found in 222ms (ActiveRecord: 0.4ms (2 queries, 0 cached) | GC: 0.9ms)
+Started GET "/" for 127.0.0.1 at 2026-07-21 17:42:50 -0700
+Processing by InertiaExampleController#index as HTML
+  [1m[36mSession Load (0.1ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  Rendering layout layouts/application.html.erb
+  Rendering /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application
+  Rendered /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application (Duration: 0.2ms | GC: 0.0ms)
+Building with Vite ⚡️
+vite v8.1.5 building client environment for test...
+
+[2Ktransforming...✓ 556 modules transformed.
+
+rendering chunks...
+
+computing gzip size...
+
+public/vite-test/assets/react-D1O1WqmP.svg              0.41 kB │ gzip:  0.26 kB
+
+public/vite-test/.vite/manifest-assets.json             0.42 kB │ gzip:  0.17 kB
+
+public/vite-test/assets/inertia-BBwuM70o.svg            0.59 kB │ gzip:  0.35 kB
+
+public/vite-test/assets/vite_ruby-BkLf4vgQ.svg          1.62 kB │ gzip:  0.71 kB
+
+public/vite-test/.vite/manifest.json                    1.97 kB │ gzip:  0.47 kB
+
+public/vite-test/assets/rails-CaIcUWwI.svg              8.83 kB │ gzip:  3.85 kB
+
+public/vite-test/assets/inertia_example-CAxN9LE_.css    2.23 kB │ gzip:  0.96 kB
+
+public/vite-test/assets/application-D20EVUVu.css       14.99 kB │ gzip:  3.85 kB
+
+public/vite-test/assets/application-DQOSP7X8.js         0.13 kB │ gzip:  0.13 kB
+
+public/vite-test/assets/jsx-runtime-ChfbbddF.js         0.38 kB │ gzip:  0.28 kB
+
+public/vite-test/assets/login-wL59WPh1.js               1.87 kB │ gzip:  0.74 kB
+
+public/vite-test/assets/inertia_example-tFZ1p7ip.js     3.26 kB │ gzip:  1.26 kB
+
+public/vite-test/assets/inertia-B4GKOrEL.js           316.31 kB │ gzip: 99.69 kB
+
+
+
+✓ built in 549ms
+
+Build with Vite complete: /Users/kieranklaassen/kkfonie/ambient-live/public/vite-test
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:42:53
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:42:53
+  Rendered layout layouts/application.html.erb (Duration: 2715.1ms | GC: 0.0ms)
+Completed 200 OK in 2728ms (Views: 2724.0ms | ActiveRecord: 0.1ms (1 query, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.1ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------------
+SessionsControllerTest: test_new_renders_the_login_page
+-------------------------------------------------------
+  [1m[36mUser Load (0.1ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started GET "/session/new" for 127.0.0.1 at 2026-07-21 17:42:53 -0700
+Processing by SessionsController#new as HTML
+  Rendering layout layouts/application.html.erb
+  Rendering /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application
+  Rendered /Users/kieranklaassen/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/inertia_rails-3.22.0/app/views/inertia.html.erb within layouts/application (Duration: 0.1ms | GC: 0.0ms)
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:42:53
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:42:53
+Skipping vite build. Watched files have not changed since the last build at 2026-07-21 17:42:53
+  Rendered layout layouts/application.html.erb (Duration: 0.7ms | GC: 0.0ms)
+Completed 200 OK in 2ms (Views: 1.4ms | ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+----------------------------------------------------------------------------------------------------------
+SessionsControllerTest: test_create_with_invalid_credentials_re-renders_login_with_an_error_and_no_session
+----------------------------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started POST "/session" for 127.0.0.1 at 2026-07-21 17:42:53 -0700
+Processing by SessionsController#create as HTML
+  Parameters: {"email_address" => "[FILTERED]", "password" => "[FILTERED]"}
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."email_address" = ? LIMIT ?[0m  [["email_address", "[FILTERED]"], ["LIMIT", 1]]
+Redirected to http://www.example.com/session/new
+Completed 302 Found in 196ms (ActiveRecord: 0.0ms (1 query, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-----------------------------------------------------------------------------------------
+SessionsControllerTest: test_destroy_terminates_the_session_and_gates_subsequent_requests
+-----------------------------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Create (0.1ms)[0m  [1m[32mINSERT INTO "sessions" ("created_at", "ip_address", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?) RETURNING "id"[0m  [["created_at", "2026-07-22 00:42:53.225059"], ["ip_address", nil], ["updated_at", "2026-07-22 00:42:53.225059"], ["user_agent", nil], ["user_id", 258008703]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Started DELETE "/session" for 127.0.0.1 at 2026-07-21 17:42:53 -0700
+Processing by SessionsController#destroy as HTML
+  [1m[36mSession Load (0.0ms)[0m  [1m[34mSELECT "sessions".* FROM "sessions" WHERE "sessions"."id" = ? LIMIT ?[0m  [["id", 1], ["LIMIT", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mSAVEPOINT active_record_1[0m
+  [1m[36mSession Destroy (0.1ms)[0m  [1m[31mDELETE FROM "sessions" WHERE "sessions"."id" = ?[0m  [["id", 1]]
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[35mRELEASE SAVEPOINT active_record_1[0m
+Redirected to http://www.example.com/session/new
+Completed 303 See Other in 1ms (ActiveRecord: 0.1ms (2 queries, 0 cached) | GC: 0.0ms)
+Started GET "/" for 127.0.0.1 at 2026-07-21 17:42:53 -0700
+Processing by InertiaExampleController#index as HTML
+Redirected to http://www.example.com/session/new
+Filter chain halted as :require_authentication rendered or redirected
+Completed 302 Found in 0ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------------------------------------
+SessionsControllerTest: test_unauthenticated_request_to_root_redirects_to_login
+-------------------------------------------------------------------------------
+  [1m[36mUser Load (0.0ms)[0m  [1m[34mSELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?[0m  [["id", 258008703], ["LIMIT", 1]]
+Started GET "/" for 127.0.0.1 at 2026-07-21 17:42:53 -0700
+Processing by InertiaExampleController#index as HTML
+Redirected to http://www.example.com/session/new
+Filter chain halted as :require_authentication rendered or redirected
+Completed 302 Found in 0ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[36mBEGIN deferred TRANSACTION[0m
+-------------------------------------------------
+UserTest: test_downcases_and_strips_email_address
+-------------------------------------------------
+  [1m[36mTRANSACTION (0.0ms)[0m  [1m[31mROLLBACK TRANSACTION[0m

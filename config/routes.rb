@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  resource :session
 
   # Redirect to localhost from 127.0.0.1 to use same IP address with Vite server
   constraints(host: "127.0.0.1") do

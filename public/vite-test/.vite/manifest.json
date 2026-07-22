@@ -1,0 +1,76 @@
+{
+  "_inertia-BBwuM70o.svg": {
+    "file": "assets/inertia-BBwuM70o.svg",
+    "src": "_inertia-BBwuM70o.svg"
+  },
+  "_jsx-runtime-ChfbbddF.js": {
+    "file": "assets/jsx-runtime-ChfbbddF.js",
+    "name": "jsx-runtime",
+    "imports": [
+      "entrypoints/inertia.tsx"
+    ]
+  },
+  "_react-D1O1WqmP.svg": {
+    "file": "assets/react-D1O1WqmP.svg",
+    "src": "_react-D1O1WqmP.svg"
+  },
+  "_vite_ruby-BkLf4vgQ.svg": {
+    "file": "assets/vite_ruby-BkLf4vgQ.svg",
+    "src": "_vite_ruby-BkLf4vgQ.svg"
+  },
+  "assets/rails.svg": {
+    "file": "assets/rails-CaIcUWwI.svg",
+    "src": "assets/rails.svg"
+  },
+  "entrypoints/application.css": {
+    "file": "assets/application-D20EVUVu.css",
+    "name": "entrypoints/application.css",
+    "names": [
+      "entrypoints/application.css"
+    ],
+    "src": "entrypoints/application.css",
+    "isEntry": true
+  },
+  "entrypoints/application.ts": {
+    "file": "assets/application-DQOSP7X8.js",
+    "name": "entrypoints/application.ts",
+    "src": "entrypoints/application.ts",
+    "isEntry": true
+  },
+  "entrypoints/inertia.tsx": {
+    "file": "assets/inertia-B4GKOrEL.js",
+    "name": "entrypoints/inertia.tsx",
+    "src": "entrypoints/inertia.tsx",
+    "isEntry": true,
+    "dynamicImports": [
+      "pages/auth/login.tsx",
+      "pages/inertia_example/index.tsx"
+    ]
+  },
+  "pages/auth/login.tsx": {
+    "file": "assets/login-wL59WPh1.js",
+    "name": "login",
+    "src": "pages/auth/login.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "entrypoints/inertia.tsx",
+      "_jsx-runtime-ChfbbddF.js"
+    ]
+  },
+  "pages/inertia_example/index.tsx": {
+    "file": "assets/inertia_example-tFZ1p7ip.js",
+    "name": "inertia_example",
+    "src": "pages/inertia_example/index.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "entrypoints/inertia.tsx",
+      "_jsx-runtime-ChfbbddF.js"
+    ],
+    "css": [
+      "assets/inertia_example-CAxN9LE_.css"
+    ],
+    "assets": [
+      "assets/rails-CaIcUWwI.svg"
+    ]
+  }
+}
