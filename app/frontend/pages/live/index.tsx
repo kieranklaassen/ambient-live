@@ -325,6 +325,29 @@ export default function Live({ samples }: LiveProps) {
         onPlay={(sample) => void playSample(sample)}
         onStop={stopSample}
         onLocalSamplesChange={(next, folderName) => {
+          const nextIds = new Set(next.map((sample) => sample.id))
+          const removedIds = new Set(
+            localSamples
+              .filter((sample) => !nextIds.has(sample.id))
+              .map((sample) => sample.id),
+          )
+          if (removedIds.size > 0) {
+            setRegions((previous) =>
+              previous.filter((region) => !removedIds.has(region.sampleId)),
+            )
+            if (playingSampleId != null && removedIds.has(playingSampleId)) {
+              stopSample()
+            }
+            if (
+              loadedSampleIdRef.current != null &&
+              removedIds.has(loadedSampleIdRef.current)
+            ) {
+              loadedSampleIdRef.current = null
+            }
+            for (const id of removedIds) {
+              sampleDurationsRef.current.delete(id)
+            }
+          }
           setLocalSamples(next)
           setLocalFolderName(folderName)
         }}
