@@ -45,6 +45,7 @@ export default function Live({ samples }: LiveProps) {
   const sampleLoadMutexRef = useRef(Promise.resolve())
   const sampleDurationsRef = useRef(new Map<number, number>())
   const regionTriggerSeqRef = useRef(0)
+  const latestTriggerSampleIdRef = useRef<number | null>(null)
   const regionsRef = useRef(regions)
   const playheadRef = useRef(playheadSec)
   const transportRef = useRef(transport)
@@ -188,6 +189,7 @@ export default function Live({ samples }: LiveProps) {
       const engine = engineRef.current
       if (!engine) return
       const triggerSeq = ++regionTriggerSeqRef.current
+      latestTriggerSampleIdRef.current = region.sampleId
       try {
         const durationSec = await ensureSampleLoaded(region.sampleId, region.url)
         if (durationSec != null) setRegionDuration(region.id, durationSec)
@@ -414,9 +416,17 @@ export default function Live({ samples }: LiveProps) {
               .map((sample) => sample.id),
           )
           if (removedIds.size > 0) {
-            // Invalidate in-flight timeline triggers so a slow load for a
-            // removed sample cannot start playback after clear/replace.
-            regionTriggerSeqRef.current++
+            // Invalidate the in-flight timeline trigger so a slow load for a
+            // removed sample cannot start playback after clear/replace. Only
+            // the latest trigger can play, so bump the sequence only when it
+            // targets a removed sample — otherwise a surviving (e.g. library)
+            // region's pending trigger would be cancelled too.
+            if (
+              latestTriggerSampleIdRef.current != null &&
+              removedIds.has(latestTriggerSampleIdRef.current)
+            ) {
+              regionTriggerSeqRef.current++
+            }
             setRegions((previous) =>
               previous.filter((region) => !removedIds.has(region.sampleId)),
             )
