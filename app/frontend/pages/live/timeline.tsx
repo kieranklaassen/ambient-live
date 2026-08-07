@@ -1,6 +1,6 @@
-import { useMemo, type DragEvent, type MouseEvent } from 'react'
+import { type DragEvent, type MouseEvent } from 'react'
 
-import { readSampleDragData } from './sample-drag'
+import { readSampleDragData, type SampleDragPayload } from './sample-drag'
 import { LOOP_LENGTH_SEC, xToTime, type SampleRegion } from './timeline-model'
 
 export type TransportState = 'stopped' | 'playing' | 'paused'
@@ -11,7 +11,7 @@ interface TimelineProps {
   transport: TransportState
   onTransportChange: (next: TransportState) => void
   onSeek: (timeSec: number) => void
-  onDropSample: (sample: { sampleId: number; name: string; url: string }, startSec: number) => void
+  onDropSample: (sample: SampleDragPayload, startSec: number) => void
 }
 
 export default function Timeline({
@@ -22,10 +22,7 @@ export default function Timeline({
   onSeek,
   onDropSample,
 }: TimelineProps) {
-  const playheadPercent = useMemo(
-    () => (LOOP_LENGTH_SEC > 0 ? (playheadSec / LOOP_LENGTH_SEC) * 100 : 0),
-    [playheadSec],
-  )
+  const playheadPercent = LOOP_LENGTH_SEC > 0 ? (playheadSec / LOOP_LENGTH_SEC) * 100 : 0
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault()

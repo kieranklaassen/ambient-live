@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AudioEngine, type ParamId } from '@/audio/audio-engine'
 import DeviceStrip from './device-strip'
 import { DEFAULT_REVERB_SETTINGS, type ReverbSettings } from './reverb-controls'
+import type { SampleDragPayload } from './sample-drag'
 import SampleBrowser from './sample-browser'
 import type { SampleItem } from './sample-library'
 import Timeline, { type TransportState } from './timeline'
@@ -36,18 +37,9 @@ export default function Live({ samples }: LiveProps) {
   const regionsRef = useRef(regions)
   const playheadRef = useRef(playheadSec)
   const transportRef = useRef(transport)
-
-  useEffect(() => {
-    regionsRef.current = regions
-  }, [regions])
-
-  useEffect(() => {
-    playheadRef.current = playheadSec
-  }, [playheadSec])
-
-  useEffect(() => {
-    transportRef.current = transport
-  }, [transport])
+  regionsRef.current = regions
+  playheadRef.current = playheadSec
+  transportRef.current = transport
 
   // Engine state never comes from Inertia props (plan R16): the engine boots
   // from a user gesture and owns its own state; props carry the sample list.
@@ -113,23 +105,17 @@ export default function Live({ samples }: LiveProps) {
     },
     [acquireNote],
   )
-  const midiNoteOn = useCallback(
-    (noteId: number, frequency: number, gain: number) => {
-      acquireNote(noteId, frequency, gain)
-    },
-    [acquireNote],
-  )
-  const noteOff = useCallback(
-    (noteId: number) => {
-      releaseNote(noteId)
-    },
-    [releaseNote],
-  )
 
   function changeSetting(field: keyof ReverbSettings, param: ParamId, value: number) {
     setSettings((previous) => ({ ...previous, [field]: value }))
     engineRef.current?.setParam(param, value)
   }
+
+  const setRegionDuration = useCallback((regionId: string, durationSec: number) => {
+    setRegions((previous) =>
+      previous.map((item) => (item.id === regionId ? { ...item, durationSec } : item)),
+    )
+  }, [])
 
   async function ensureSampleLoaded(sampleId: number, url: string): Promise<number | null> {
     const engine = engineRef.current
@@ -166,22 +152,21 @@ export default function Live({ samples }: LiveProps) {
     setPlayingSampleId(null)
   }
 
-  const triggerRegion = useCallback(async (region: SampleRegion) => {
-    const engine = engineRef.current
-    if (!engine) return
-    try {
-      const durationSec = await ensureSampleLoaded(region.sampleId, region.url)
-      if (durationSec != null) {
-        setRegions((previous) =>
-          previous.map((item) => (item.id === region.id ? { ...item, durationSec } : item)),
-        )
+  const triggerRegion = useCallback(
+    async (region: SampleRegion) => {
+      const engine = engineRef.current
+      if (!engine) return
+      try {
+        const durationSec = await ensureSampleLoaded(region.sampleId, region.url)
+        if (durationSec != null) setRegionDuration(region.id, durationSec)
+        engine.playSample()
+        setPlayingSampleId(region.sampleId)
+      } catch {
+        // Unknown/unreachable sample — skip without throwing (U3 edge).
       }
-      engine.playSample()
-      setPlayingSampleId(region.sampleId)
-    } catch {
-      // Unknown/unreachable sample — skip without throwing (U3 edge).
-    }
-  }, [])
+    },
+    [setRegionDuration],
+  )
 
   useEffect(() => {
     if (transport !== 'playing') return
@@ -207,12 +192,9 @@ export default function Live({ samples }: LiveProps) {
       setPlayheadSec(next)
 
       const hitIds = risingEdgeRegionIds(previous, next, regionsRef.current, LOOP_LENGTH_SEC)
-      if (hitIds.length > 0) {
-        const byId = new Map(regionsRef.current.map((region) => [region.id, region]))
-        for (const id of hitIds) {
-          const region = byId.get(id)
-          if (region) void triggerRegion(region)
-        }
+      for (const id of hitIds) {
+        const region = regionsRef.current.find((entry) => entry.id === id)
+        if (region) void triggerRegion(region)
       }
 
       frame = requestAnimationFrame(tick)
@@ -236,10 +218,7 @@ export default function Live({ samples }: LiveProps) {
     setTransport(next)
   }
 
-  function handleDropSample(
-    sample: { sampleId: number; name: string; url: string },
-    startSec: number,
-  ) {
+  function handleDropSample(sample: SampleDragPayload, startSec: number) {
     const region = createSampleRegion({
       sampleId: sample.sampleId,
       name: sample.name,
@@ -254,9 +233,7 @@ export default function Live({ samples }: LiveProps) {
       try {
         const durationSec = await ensureSampleLoaded(sample.sampleId, sample.url)
         if (durationSec == null) return
-        setRegions((previous) =>
-          previous.map((item) => (item.id === region.id ? { ...item, durationSec } : item)),
-        )
+        setRegionDuration(region.id, durationSec)
       } catch {
         // Keep placeholder duration if decode fails.
       }
@@ -335,8 +312,8 @@ export default function Live({ samples }: LiveProps) {
         settings={settings}
         onChange={changeSetting}
         onNoteOn={noteOn}
-        onMidiNoteOn={midiNoteOn}
-        onNoteOff={noteOff}
+        onMidiNoteOn={acquireNote}
+        onNoteOff={releaseNote}
       />
     </div>
   )

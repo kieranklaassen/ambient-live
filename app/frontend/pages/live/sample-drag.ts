@@ -7,11 +7,7 @@ export interface SampleDragPayload {
 }
 
 export function serializeSampleDrag(payload: SampleDragPayload): string {
-  return JSON.stringify({
-    sampleId: payload.sampleId,
-    name: payload.name,
-    url: payload.url,
-  })
+  return JSON.stringify(payload)
 }
 
 export function parseSampleDrag(raw: string | null | undefined): SampleDragPayload | null {

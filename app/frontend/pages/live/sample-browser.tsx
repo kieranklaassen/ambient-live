@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react'
-import { useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react'
+import { useRef, useState, type DragEvent, type FormEvent } from 'react'
 
 import { setSampleDragData } from './sample-drag'
 import type { SampleItem } from './sample-library'
@@ -26,11 +26,10 @@ export default function SampleBrowser({
     audio_file: File | null
   }>({ name: '', audio_file: null })
 
-  const visible = useMemo(() => {
-    const q = filter.trim().toLowerCase()
-    if (!q) return samples
-    return samples.filter((sample) => sample.name.toLowerCase().includes(q))
-  }, [filter, samples])
+  const query = filter.trim().toLowerCase()
+  const visible = query
+    ? samples.filter((sample) => sample.name.toLowerCase().includes(query))
+    : samples
 
   function upload(e: FormEvent) {
     e.preventDefault()
@@ -118,6 +117,7 @@ export default function SampleBrowser({
                 <li
                   key={sample.id}
                   draggable
+                  data-testid={`sample-row-${sample.id}`}
                   onDragStart={(event) => onDragStart(event, sample)}
                   className="group flex cursor-grab items-center gap-2 rounded-md border border-transparent bg-zinc-900/50 px-2 py-2 active:cursor-grabbing hover:border-zinc-700"
                 >
