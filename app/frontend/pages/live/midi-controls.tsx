@@ -67,6 +67,8 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
     if (!parsed) return
 
     if (parsed.type === 'note-on') {
+      // Skip duplicate note-ons so the shared refcount only sees one hold per pitch.
+      if (activeNotesRef.current.has(parsed.note)) return
       activeNotesRef.current.add(parsed.note)
       onNoteOnRef.current(parsed.note, midiToFrequency(parsed.note), parsed.gain)
       return
