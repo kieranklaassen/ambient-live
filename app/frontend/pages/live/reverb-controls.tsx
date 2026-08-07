@@ -35,14 +35,27 @@ interface ReverbControlsProps {
   enabled: boolean
   settings: ReverbSettings
   onChange: (field: keyof ReverbSettings, param: ParamId, value: number) => void
+  compact?: boolean
 }
 
-export default function ReverbControls({ enabled, settings, onChange }: ReverbControlsProps) {
+export default function ReverbControls({
+  enabled,
+  settings,
+  onChange,
+  compact = false,
+}: ReverbControlsProps) {
   return (
-    <div className="grid gap-4">
+    <div className={compact ? 'grid grid-cols-2 gap-x-3 gap-y-2' : 'grid gap-4'}>
       {SLIDERS.map(({ field, param, label, min, max, step }) => (
-        <label key={field} className="grid grid-cols-[6rem_1fr_3.5rem] items-center gap-3 text-sm">
-          <span className="text-zinc-400">{label}</span>
+        <label
+          key={field}
+          className={
+            compact
+              ? 'grid grid-cols-[3.5rem_1fr_2.75rem] items-center gap-2 text-xs'
+              : 'grid grid-cols-[6rem_1fr_3.5rem] items-center gap-3 text-sm'
+          }
+        >
+          <span className="uppercase tracking-wide text-al-muted">{label}</span>
           <input
             type="range"
             min={min}
@@ -51,9 +64,9 @@ export default function ReverbControls({ enabled, settings, onChange }: ReverbCo
             disabled={!enabled}
             value={settings[field]}
             onChange={(e) => onChange(field, param, Number(e.target.value))}
-            className="accent-teal-500 disabled:opacity-40"
+            className="accent-al-accent disabled:opacity-40"
           />
-          <span className="text-right font-mono text-xs text-zinc-500">
+          <span className="text-right font-mono text-[10px] text-al-dim">
             {field === 'predelayMs' ? `${settings[field]}ms` : settings[field].toFixed(2)}
           </span>
         </label>
