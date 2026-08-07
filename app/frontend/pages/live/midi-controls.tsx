@@ -176,7 +176,7 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
   }
 
   return (
-    <div className="mt-4 space-y-2" data-testid="midi-controls">
+    <div className="space-y-2" data-testid="midi-controls">
       {status.kind !== 'ready' && (
         <button
           type="button"

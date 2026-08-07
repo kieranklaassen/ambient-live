@@ -2,10 +2,18 @@ import { Head, router } from '@inertiajs/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { AudioEngine, type ParamId } from '@/audio/audio-engine'
-import Keyboard from './keyboard'
-import MidiControls from './midi-controls'
-import ReverbControls, { DEFAULT_REVERB_SETTINGS, type ReverbSettings } from './reverb-controls'
-import SampleLibrary, { type SampleItem } from './sample-library'
+import DeviceStrip from './device-strip'
+import { DEFAULT_REVERB_SETTINGS, type ReverbSettings } from './reverb-controls'
+import SampleBrowser from './sample-browser'
+import type { SampleItem } from './sample-library'
+import Timeline, { type TransportState } from './timeline'
+import {
+  LOOP_LENGTH_SEC,
+  advancePlayhead,
+  createSampleRegion,
+  risingEdgeRegionIds,
+  type SampleRegion,
+} from './timeline-model'
 
 interface LiveProps {
   samples: SampleItem[]
@@ -20,6 +28,26 @@ export default function Live({ samples }: LiveProps) {
   const [settings, setSettings] = useState<ReverbSettings>(DEFAULT_REVERB_SETTINGS)
   const [playingSampleId, setPlayingSampleId] = useState<number | null>(null)
   const [loadingSampleId, setLoadingSampleId] = useState<number | null>(null)
+  const [regions, setRegions] = useState<SampleRegion[]>([])
+  const [playheadSec, setPlayheadSec] = useState(0)
+  const [transport, setTransport] = useState<TransportState>('stopped')
+
+  const loadedSampleIdRef = useRef<number | null>(null)
+  const regionsRef = useRef(regions)
+  const playheadRef = useRef(playheadSec)
+  const transportRef = useRef(transport)
+
+  useEffect(() => {
+    regionsRef.current = regions
+  }, [regions])
+
+  useEffect(() => {
+    playheadRef.current = playheadSec
+  }, [playheadSec])
+
+  useEffect(() => {
+    transportRef.current = transport
+  }, [transport])
 
   // Engine state never comes from Inertia props (plan R16): the engine boots
   // from a user gesture and owns its own state; props carry the sample list.
@@ -103,14 +131,27 @@ export default function Live({ samples }: LiveProps) {
     engineRef.current?.setParam(param, value)
   }
 
+  async function ensureSampleLoaded(sampleId: number, url: string): Promise<number | null> {
+    const engine = engineRef.current
+    if (!engine) return null
+
+    if (loadedSampleIdRef.current === sampleId) {
+      return null
+    }
+
+    const response = await fetch(url)
+    const encoded = await response.arrayBuffer()
+    const { durationSec } = await engine.decodeAndLoadSample(encoded)
+    loadedSampleIdRef.current = sampleId
+    return durationSec
+  }
+
   async function playSample(sample: SampleItem) {
     const engine = engineRef.current
     if (!engine || loadingSampleId !== null) return
     setLoadingSampleId(sample.id)
     try {
-      const response = await fetch(sample.url)
-      const encoded = await response.arrayBuffer()
-      await engine.decodeAndLoadSample(encoded)
+      await ensureSampleLoaded(sample.id, sample.url)
       engine.playSample()
       setPlayingSampleId(sample.id)
     } catch {
@@ -125,16 +166,130 @@ export default function Live({ samples }: LiveProps) {
     setPlayingSampleId(null)
   }
 
+  const triggerRegion = useCallback(async (region: SampleRegion) => {
+    const engine = engineRef.current
+    if (!engine) return
+    try {
+      const durationSec = await ensureSampleLoaded(region.sampleId, region.url)
+      if (durationSec != null) {
+        setRegions((previous) =>
+          previous.map((item) => (item.id === region.id ? { ...item, durationSec } : item)),
+        )
+      }
+      engine.playSample()
+      setPlayingSampleId(region.sampleId)
+    } catch {
+      // Unknown/unreachable sample — skip without throwing (U3 edge).
+    }
+  }, [])
+
+  useEffect(() => {
+    if (transport !== 'playing') return
+
+    let frame = 0
+    let lastTs: number | null = null
+
+    const tick = (ts: number) => {
+      if (transportRef.current !== 'playing') return
+
+      if (lastTs == null) {
+        lastTs = ts
+        frame = requestAnimationFrame(tick)
+        return
+      }
+
+      const deltaSec = Math.min((ts - lastTs) / 1000, 0.1)
+      lastTs = ts
+
+      const previous = playheadRef.current
+      const next = advancePlayhead(previous, deltaSec, LOOP_LENGTH_SEC)
+      playheadRef.current = next
+      setPlayheadSec(next)
+
+      const hitIds = risingEdgeRegionIds(previous, next, regionsRef.current, LOOP_LENGTH_SEC)
+      if (hitIds.length > 0) {
+        const byId = new Map(regionsRef.current.map((region) => [region.id, region]))
+        for (const id of hitIds) {
+          const region = byId.get(id)
+          if (region) void triggerRegion(region)
+        }
+      }
+
+      frame = requestAnimationFrame(tick)
+    }
+
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [transport, triggerRegion])
+
+  function handleTransportChange(next: TransportState) {
+    if (next === 'stopped') {
+      setTransport('stopped')
+      setPlayheadSec(0)
+      playheadRef.current = 0
+      engineRef.current?.stopSample()
+      setPlayingSampleId(null)
+      return
+    }
+    // Keep playhead where it is on play/pause so an in-region start does not
+    // auto-fire (KTD9 rising-edge uses the current playhead as previous).
+    setTransport(next)
+  }
+
+  function handleDropSample(
+    sample: { sampleId: number; name: string; url: string },
+    startSec: number,
+  ) {
+    const region = createSampleRegion({
+      sampleId: sample.sampleId,
+      name: sample.name,
+      url: sample.url,
+      startSec,
+    })
+    setRegions((previous) => [...previous, region])
+
+    // Eager decode to replace placeholder duration when audio is already started.
+    if (!engineRef.current) return
+    void (async () => {
+      try {
+        const durationSec = await ensureSampleLoaded(sample.sampleId, sample.url)
+        if (durationSec == null) return
+        setRegions((previous) =>
+          previous.map((item) => (item.id === region.id ? { ...item, durationSec } : item)),
+        )
+      } catch {
+        // Keep placeholder duration if decode fails.
+      }
+    })()
+  }
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-zinc-950 text-zinc-100">
       <Head title="Ambient Live" />
 
-      <header className="flex items-center justify-between border-b border-zinc-900 px-6 py-4">
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-zinc-900 px-4 py-3">
         <h1 className="text-lg font-medium tracking-wide">Ambient Live</h1>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {!started ? (
+            <div className="flex flex-col items-end gap-1">
+              <button
+                type="button"
+                onClick={() => void startAudio()}
+                disabled={starting}
+                className="rounded-md bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-500 disabled:opacity-50"
+              >
+                {starting ? 'Starting…' : 'Start audio'}
+              </button>
+              {startError && <p className="max-w-xs text-right text-xs text-red-400">{startError}</p>}
+            </div>
+          ) : (
+            <span className="text-xs text-teal-500/80" data-testid="audio-started">
+              Audio live
+            </span>
+          )}
           <div className="flex items-center gap-2" aria-label="Output level">
             <span className="text-xs text-zinc-500">out</span>
-            <div className="h-2 w-40 overflow-hidden rounded-full bg-zinc-900">
+            <div className="h-2 w-32 overflow-hidden rounded-full bg-zinc-900 sm:w-40">
               <div
                 data-testid="output-meter"
                 data-level={level.toFixed(3)}
@@ -154,51 +309,35 @@ export default function Live({ samples }: LiveProps) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-10 px-6 py-10">
-        {!started && (
-          <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center">
-            <p className="mb-4 text-zinc-400">
-              The engine boots on a gesture — browsers require one to start audio.
-            </p>
-            <button
-              type="button"
-              onClick={() => void startAudio()}
-              disabled={starting}
-              className="rounded-md bg-teal-600 px-6 py-3 font-medium text-white transition hover:bg-teal-500 disabled:opacity-50"
-            >
-              {starting ? 'Starting…' : 'Start audio'}
-            </button>
-            {startError && <p className="mt-3 text-sm text-red-400">{startError}</p>}
-          </section>
-        )}
+      <div className="flex min-h-0 flex-1">
+        <SampleBrowser
+          samples={samples}
+          enabled={started && loadingSampleId === null}
+          playingSampleId={playingSampleId}
+          onPlay={(sample) => void playSample(sample)}
+          onStop={stopSample}
+        />
+        <Timeline
+          regions={regions}
+          playheadSec={playheadSec}
+          transport={transport}
+          onTransportChange={handleTransportChange}
+          onSeek={(timeSec) => {
+            setPlayheadSec(timeSec)
+            playheadRef.current = timeSec
+          }}
+          onDropSample={handleDropSample}
+        />
+      </div>
 
-        <section>
-          <h2 className="mb-4 text-sm font-medium uppercase tracking-widest text-zinc-500">Play</h2>
-          <Keyboard enabled={started} onNoteOn={noteOn} onNoteOff={noteOff} />
-          <p className="mt-2 text-xs text-zinc-600">
-            Hold keys (pointer or the marked computer keys) — releases fade into the reverb tail.
-          </p>
-          <MidiControls enabled={started} onNoteOn={midiNoteOn} onNoteOff={noteOff} />
-        </section>
-
-        <section>
-          <h2 className="mb-4 text-sm font-medium uppercase tracking-widest text-zinc-500">Reverb</h2>
-          <ReverbControls enabled={started} settings={settings} onChange={changeSetting} />
-        </section>
-
-        <section>
-          <h2 className="mb-4 text-sm font-medium uppercase tracking-widest text-zinc-500">
-            Samples
-          </h2>
-          <SampleLibrary
-            samples={samples}
-            enabled={started && loadingSampleId === null}
-            playingSampleId={playingSampleId}
-            onPlay={(sample) => void playSample(sample)}
-            onStop={stopSample}
-          />
-        </section>
-      </main>
+      <DeviceStrip
+        enabled={started}
+        settings={settings}
+        onChange={changeSetting}
+        onNoteOn={noteOn}
+        onMidiNoteOn={midiNoteOn}
+        onNoteOff={noteOff}
+      />
     </div>
   )
 }

@@ -60,7 +60,7 @@ export class AudioEngine {
 
   // Decodes an audio file with the browser's decoder and ships raw PCM to the
   // core, which stays codec-free (plan KTD-6 / R17).
-  async decodeAndLoadSample(encoded: ArrayBuffer): Promise<void> {
+  async decodeAndLoadSample(encoded: ArrayBuffer): Promise<{ durationSec: number }> {
     const audioBuffer = await this.context.decodeAudioData(encoded)
     const frames = audioBuffer.length
     const channels: 1 | 2 = audioBuffer.numberOfChannels >= 2 ? 2 : 1
@@ -82,6 +82,8 @@ export class AudioEngine {
       { type: 'load-sample', frames, channels, pcm } satisfies EngineMessage,
       [pcm.buffer],
     )
+
+    return { durationSec: audioBuffer.duration }
   }
 
   playSample(): void {

@@ -24,9 +24,10 @@ interface KeyboardProps {
   enabled: boolean
   onNoteOn: (noteId: number, frequency: number) => void
   onNoteOff: (noteId: number) => void
+  compact?: boolean
 }
 
-export default function Keyboard({ enabled, onNoteOn, onNoteOff }: KeyboardProps) {
+export default function Keyboard({ enabled, onNoteOn, onNoteOff, compact = false }: KeyboardProps) {
   const heldNotes = useRef<Set<number>>(new Set())
 
   const press = useCallback(
@@ -85,12 +86,16 @@ export default function Keyboard({ enabled, onNoteOn, onNoteOff }: KeyboardProps
           onPointerLeave={() => release(note)}
           className={`flex flex-col items-center justify-end rounded-b-md pb-2 text-xs transition-colors select-none disabled:opacity-40 ${
             black
-              ? 'h-24 w-9 bg-zinc-800 text-zinc-500 hover:bg-zinc-700 active:bg-teal-800'
-              : 'h-36 w-12 bg-zinc-200 text-zinc-600 hover:bg-white active:bg-teal-200'
+              ? compact
+                ? 'h-16 w-7 bg-zinc-800 text-zinc-500 hover:bg-zinc-700 active:bg-teal-800'
+                : 'h-24 w-9 bg-zinc-800 text-zinc-500 hover:bg-zinc-700 active:bg-teal-800'
+              : compact
+                ? 'h-24 w-9 bg-zinc-200 text-zinc-600 hover:bg-white active:bg-teal-200'
+                : 'h-36 w-12 bg-zinc-200 text-zinc-600 hover:bg-white active:bg-teal-200'
           }`}
         >
           <span className="font-mono uppercase">{key}</span>
-          <span className="text-[10px] opacity-60">{label}</span>
+          {!compact && <span className="text-[10px] opacity-60">{label}</span>}
         </button>
       ))}
     </div>

@@ -35,13 +35,26 @@ interface ReverbControlsProps {
   enabled: boolean
   settings: ReverbSettings
   onChange: (field: keyof ReverbSettings, param: ParamId, value: number) => void
+  compact?: boolean
 }
 
-export default function ReverbControls({ enabled, settings, onChange }: ReverbControlsProps) {
+export default function ReverbControls({
+  enabled,
+  settings,
+  onChange,
+  compact = false,
+}: ReverbControlsProps) {
   return (
-    <div className="grid gap-4">
+    <div className={compact ? 'grid grid-cols-2 gap-x-3 gap-y-2' : 'grid gap-4'}>
       {SLIDERS.map(({ field, param, label, min, max, step }) => (
-        <label key={field} className="grid grid-cols-[6rem_1fr_3.5rem] items-center gap-3 text-sm">
+        <label
+          key={field}
+          className={
+            compact
+              ? 'grid grid-cols-[3.5rem_1fr_2.75rem] items-center gap-2 text-xs'
+              : 'grid grid-cols-[6rem_1fr_3.5rem] items-center gap-3 text-sm'
+          }
+        >
           <span className="text-zinc-400">{label}</span>
           <input
             type="range"
@@ -53,7 +66,7 @@ export default function ReverbControls({ enabled, settings, onChange }: ReverbCo
             onChange={(e) => onChange(field, param, Number(e.target.value))}
             className="accent-teal-500 disabled:opacity-40"
           />
-          <span className="text-right font-mono text-xs text-zinc-500">
+          <span className="text-right font-mono text-[10px] text-zinc-500">
             {field === 'predelayMs' ? `${settings[field]}ms` : settings[field].toFixed(2)}
           </span>
         </label>
