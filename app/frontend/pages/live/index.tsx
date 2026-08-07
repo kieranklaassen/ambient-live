@@ -6,13 +6,14 @@ import DeviceStrip from './device-strip'
 import { revokeLocalSampleUrls } from './local-folder'
 import { DEFAULT_REVERB_SETTINGS, type ReverbSettings } from './reverb-controls'
 import SampleBrowser from './sample-browser'
+import type { SampleDragPayload } from './sample-drag'
 import type { SampleItem } from './sample-library'
 import Timeline, { type TransportState } from './timeline'
 import {
   LOOP_LENGTH_SEC,
   advancePlayhead,
   createSampleRegion,
-  risingEdgeRegionIds,
+  risingEdgeRegions,
   type SampleRegion,
 } from './timeline-model'
 
@@ -41,11 +42,14 @@ export default function Live({ samples }: LiveProps) {
   const playheadRef = useRef(playheadSec)
   const transportRef = useRef(transport)
   const localSamplesRef = useRef(localSamples)
+  // Keep rAF / cleanup readers current without an extra effect tick.
   regionsRef.current = regions
-  playheadRef.current = playheadSec
   transportRef.current = transport
   localSamplesRef.current = localSamples
-  useEffect(() => () => { revokeLocalSampleUrls(localSamplesRef.current) }, [])
+
+  useEffect(() => () => {
+    revokeLocalSampleUrls(localSamplesRef.current)
+  }, [])
 
   async function startAudio() {
     if (engineRef.current || starting) return
@@ -67,6 +71,8 @@ export default function Live({ samples }: LiveProps) {
     let frame = 0
     const poll = () => {
       const engine = engineRef.current
+      // Quantize so idle/steady frames set an identical value and React
+      // skips the re-render instead of updating at 60fps.
       if (engine) setLevel(Math.round(engine.outputLevel() * 200) / 200)
       frame = requestAnimationFrame(poll)
     }
@@ -74,8 +80,16 @@ export default function Live({ samples }: LiveProps) {
     return () => cancelAnimationFrame(frame)
   }, [started])
 
-  useEffect(() => () => { void engineRef.current?.close(); engineRef.current = null }, [])
+  useEffect(
+    () => () => {
+      void engineRef.current?.close()
+      engineRef.current = null
+    },
+    [],
+  )
 
+  // Refcount overlapping keyboard + MIDI holds so one input releasing a
+  // shared noteId does not cut a voice the other input still owns.
   const noteHoldCounts = useRef(new Map<number, number>())
   const acquireNote = useCallback((noteId: number, frequency: number, gain: number) => {
     const next = (noteHoldCounts.current.get(noteId) ?? 0) + 1
@@ -91,14 +105,23 @@ export default function Live({ samples }: LiveProps) {
     }
     noteHoldCounts.current.set(noteId, current - 1)
   }, [])
-  const noteOn = useCallback((noteId: number, frequency: number) => { acquireNote(noteId, frequency, 0.4) }, [acquireNote])
-  const midiNoteOn = useCallback((noteId: number, frequency: number, gain: number) => { acquireNote(noteId, frequency, gain) }, [acquireNote])
-  const noteOff = useCallback((noteId: number) => { releaseNote(noteId) }, [releaseNote])
+  const noteOn = useCallback(
+    (noteId: number, frequency: number) => {
+      acquireNote(noteId, frequency, 0.4)
+    },
+    [acquireNote],
+  )
 
   function changeSetting(field: keyof ReverbSettings, param: ParamId, value: number) {
     setSettings((previous) => ({ ...previous, [field]: value }))
     engineRef.current?.setParam(param, value)
   }
+
+  const setRegionDuration = useCallback((regionId: string, durationSec: number) => {
+    setRegions((previous) =>
+      previous.map((item) => (item.id === regionId ? { ...item, durationSec } : item)),
+    )
+  }, [])
 
   async function ensureSampleLoaded(sampleId: number, url: string): Promise<number | null> {
     const engine = engineRef.current
@@ -146,20 +169,21 @@ export default function Live({ samples }: LiveProps) {
     setPlayingSampleId(null)
   }
 
-  const triggerRegion = useCallback(async (region: SampleRegion) => {
-    const engine = engineRef.current
-    if (!engine) return
-    try {
-      const durationSec = await ensureSampleLoaded(region.sampleId, region.url)
-      if (durationSec != null) {
-        setRegions((previous) => previous.map((item) => (item.id === region.id ? { ...item, durationSec } : item)))
+  const triggerRegion = useCallback(
+    async (region: SampleRegion) => {
+      const engine = engineRef.current
+      if (!engine) return
+      try {
+        const durationSec = await ensureSampleLoaded(region.sampleId, region.url)
+        if (durationSec != null) setRegionDuration(region.id, durationSec)
+        engine.playSample()
+        setPlayingSampleId(region.sampleId)
+      } catch {
+        // Unknown/unreachable sample — skip without throwing (U3 edge).
       }
-      engine.playSample()
-      setPlayingSampleId(region.sampleId)
-    } catch {
-      // skip
-    }
-  }, [])
+    },
+    [setRegionDuration],
+  )
 
   useEffect(() => {
     if (transport !== 'playing') return
@@ -167,20 +191,23 @@ export default function Live({ samples }: LiveProps) {
     let lastTs: number | null = null
     const tick = (ts: number) => {
       if (transportRef.current !== 'playing') return
-      if (lastTs == null) { lastTs = ts; frame = requestAnimationFrame(tick); return }
+      if (lastTs == null) {
+        lastTs = ts
+        frame = requestAnimationFrame(tick)
+        return
+      }
       const deltaSec = Math.min((ts - lastTs) / 1000, 0.1)
       lastTs = ts
       const previous = playheadRef.current
       const next = advancePlayhead(previous, deltaSec, LOOP_LENGTH_SEC)
+      // Keep full-precision playhead in the ref for rising-edge detection;
+      // quantize React state to the 0.01s readout so steady frames bail out.
       playheadRef.current = next
-      setPlayheadSec(next)
-      const hitIds = risingEdgeRegionIds(previous, next, regionsRef.current, LOOP_LENGTH_SEC)
-      if (hitIds.length > 0) {
-        const byId = new Map(regionsRef.current.map((region) => [region.id, region]))
-        for (const id of hitIds) {
-          const region = byId.get(id)
-          if (region) void triggerRegion(region)
-        }
+      const quantized = Math.round(next * 100) / 100
+      setPlayheadSec((prev) => (prev === quantized ? prev : quantized))
+
+      for (const region of risingEdgeRegions(previous, next, regionsRef.current, LOOP_LENGTH_SEC)) {
+        void triggerRegion(region)
       }
       frame = requestAnimationFrame(tick)
     }
@@ -195,20 +222,27 @@ export default function Live({ samples }: LiveProps) {
       playheadRef.current = 0
       return
     }
+    // Keep playhead where it is on play/pause so an in-region start does not
+    // auto-fire (KTD9 rising-edge uses the current playhead as previous).
     setTransport(next)
   }
 
-  function handleDropSample(sample: { sampleId: number; name: string; url: string }, startSec: number) {
-    const region = createSampleRegion({ sampleId: sample.sampleId, name: sample.name, url: sample.url, startSec })
+  function handleDropSample(sample: SampleDragPayload, startSec: number) {
+    const region = createSampleRegion({
+      sampleId: sample.sampleId,
+      name: sample.name,
+      url: sample.url,
+      startSec,
+    })
     setRegions((previous) => [...previous, region])
     if (!engineRef.current) return
     void (async () => {
       try {
         const durationSec = await ensureSampleLoaded(sample.sampleId, sample.url)
         if (durationSec == null) return
-        setRegions((previous) => previous.map((item) => (item.id === region.id ? { ...item, durationSec } : item)))
+        setRegionDuration(region.id, durationSec)
       } catch {
-        // keep placeholder
+        // Keep placeholder duration if decode fails.
       }
     })()
   }
@@ -218,27 +252,55 @@ export default function Live({ samples }: LiveProps) {
       <Head title="Ambient Live" />
       <header className="workstation-region sg-col-1 sg-span-edge sg-row-1 sg-rows-2 half:sg-rows-1 full:sg-rows-1 flex items-center justify-between gap-3 border-b border-al-border bg-al-panel sg-p-1">
         <div className="flex items-baseline gap-3">
-          <h1 className="text-sm font-medium uppercase tracking-[0.12em] text-al-text sg-leading-3">Ambient Live</h1>
-          <span className="hidden text-[10px] uppercase tracking-wider text-al-dim sm:inline">Session</span>
+          <h1 className="text-sm font-medium uppercase tracking-[0.12em] text-al-text sg-leading-3">
+            Ambient Live
+          </h1>
+          <span className="hidden text-[10px] uppercase tracking-wider text-al-dim sm:inline">
+            Session
+          </span>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {!started ? (
             <div className="flex flex-col items-end gap-0.5">
-              <button type="button" onClick={() => void startAudio()} disabled={starting} className="rounded-[1px] border border-al-accent bg-al-accent px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-al-chrome disabled:opacity-50">
+              <button
+                type="button"
+                onClick={() => void startAudio()}
+                disabled={starting}
+                className="rounded-[1px] border border-al-accent bg-al-accent px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-al-chrome disabled:opacity-50"
+              >
                 {starting ? 'Starting…' : 'Start audio'}
               </button>
-              {startError && <p className="max-w-xs text-right text-[11px] text-al-danger">{startError}</p>}
+              {startError && (
+                <p className="max-w-xs text-right text-[11px] text-al-danger">{startError}</p>
+              )}
             </div>
           ) : (
-            <span className="rounded-[1px] border border-al-hairline bg-al-sunken px-2 py-0.5 text-[10px] uppercase tracking-wide text-al-accent" data-testid="audio-started">Audio live</span>
+            <span
+              className="rounded-[1px] border border-al-hairline bg-al-sunken px-2 py-0.5 text-[10px] uppercase tracking-wide text-al-accent"
+              data-testid="audio-started"
+            >
+              Audio live
+            </span>
           )}
           <div className="flex items-center gap-1.5" aria-label="Output level">
             <span className="text-[10px] uppercase tracking-wide text-al-dim">Out</span>
             <div className="h-1.5 w-28 overflow-hidden rounded-[1px] border border-al-border bg-al-sunken sm:w-36">
-              <div data-testid="output-meter" data-level={level.toFixed(3)} aria-hidden="true" className="h-full bg-al-accent transition-[width] duration-75" style={{ width: `${Math.round(level * 100)}%` }} />
+              <div
+                data-testid="output-meter"
+                data-level={level.toFixed(3)}
+                aria-hidden="true"
+                className="h-full bg-al-accent transition-[width] duration-75"
+                style={{ width: `${Math.round(level * 100)}%` }}
+              />
             </div>
           </div>
-          <button type="button" onClick={() => router.delete('/session')} className="rounded-[1px] px-2 py-1 text-[11px] uppercase tracking-wide text-al-muted hover:text-al-text">Sign out</button>
+          <button
+            type="button"
+            onClick={() => router.delete('/session')}
+            className="rounded-[1px] px-2 py-1 text-[11px] uppercase tracking-wide text-al-muted hover:text-al-text"
+          >
+            Sign out
+          </button>
         </div>
       </header>
 
@@ -251,7 +313,10 @@ export default function Live({ samples }: LiveProps) {
         playingSampleId={playingSampleId}
         onPlay={(sample) => void playSample(sample)}
         onStop={stopSample}
-        onLocalSamplesChange={(next, folderName) => { setLocalSamples(next); setLocalFolderName(folderName) }}
+        onLocalSamplesChange={(next, folderName) => {
+          setLocalSamples(next)
+          setLocalFolderName(folderName)
+        }}
       />
       <Timeline
         className="sg-col-5 half:sg-col-4 full:sg-col-4 sg-span-edge sg-row-3 half:sg-row-2 full:sg-row-2 sg-rows-20 half:sg-rows-14 full:sg-rows-9"
@@ -259,7 +324,10 @@ export default function Live({ samples }: LiveProps) {
         playheadSec={playheadSec}
         transport={transport}
         onTransportChange={handleTransportChange}
-        onSeek={(timeSec) => { setPlayheadSec(timeSec); playheadRef.current = timeSec }}
+        onSeek={(timeSec) => {
+          setPlayheadSec(timeSec)
+          playheadRef.current = timeSec
+        }}
         onDropSample={handleDropSample}
       />
       <DeviceStrip
@@ -268,8 +336,8 @@ export default function Live({ samples }: LiveProps) {
         settings={settings}
         onChange={changeSetting}
         onNoteOn={noteOn}
-        onMidiNoteOn={midiNoteOn}
-        onNoteOff={noteOff}
+        onMidiNoteOn={acquireNote}
+        onNoteOff={releaseNote}
       />
     </main>
   )
