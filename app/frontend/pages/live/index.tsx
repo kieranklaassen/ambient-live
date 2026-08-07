@@ -227,6 +227,9 @@ export default function Live({ samples }: LiveProps) {
   }, [transport, triggerRegion])
 
   function handleTransportChange(next: TransportState) {
+    // Sync the ref before the re-render so in-flight triggerRegion loads see
+    // Stop/Pause immediately instead of one frame late.
+    transportRef.current = next
     if (next === 'stopped') {
       setTransport('stopped')
       setPlayheadSec(0)
@@ -332,6 +335,9 @@ export default function Live({ samples }: LiveProps) {
               .map((sample) => sample.id),
           )
           if (removedIds.size > 0) {
+            // Invalidate in-flight timeline triggers so a slow load for a
+            // removed sample cannot start playback after clear/replace.
+            regionTriggerSeqRef.current++
             setRegions((previous) =>
               previous.filter((region) => !removedIds.has(region.sampleId)),
             )
