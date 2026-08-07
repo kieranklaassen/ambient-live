@@ -34,6 +34,9 @@
   --color-al-wash-moss: #2a4534;
   --color-al-wash-sage: #3a5240;
 
+  /* DAW / overlay value chrome */
+  --color-al-control-value: #dceae4;
+
   --spacing-sg-1: 6px;
   --spacing-sg-2: 12px;
   --spacing-sg-3: 18px;

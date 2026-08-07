@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { midiToFrequency } from '@/audio/midi'
 
+import { isTypingTarget } from './keymap'
+
 // One octave plus the top C, C3-C4 by default — low enough to sit in
 // ambient-pad territory. Home-row keys mirror the classic DAW layout.
 const KEYS: { note: number; label: string; key: string; black: boolean }[] = [
@@ -63,8 +65,9 @@ export default function Keyboard({ enabled, onNoteOn, onNoteOff, compact = false
 
     const byKey = new Map(KEYS.map((k) => [k.key, k.note]))
     const handleDown = (event: KeyboardEvent) => {
-      if (event.repeat || event.metaKey || event.ctrlKey) return
-      if (event.target instanceof HTMLInputElement) return
+      if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return
+      // Same typing-context gate as transport shortcuts (search/filter, etc.).
+      if (isTypingTarget(event.target)) return
       const note = byKey.get(event.key.toLowerCase())
       if (note !== undefined) press(note)
     }

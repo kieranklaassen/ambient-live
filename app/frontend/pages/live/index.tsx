@@ -3,11 +3,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { AudioEngine, type ParamId } from '@/audio/audio-engine'
 import DeviceStrip from './device-strip'
+import type { ShortcutAction } from './keymap'
 import { revokeLocalSampleUrls } from './local-folder'
 import { DEFAULT_REVERB_SETTINGS, type ReverbSettings } from './reverb-controls'
 import SampleBrowser from './sample-browser'
 import type { SampleDragPayload } from './sample-drag'
 import type { SampleItem } from './sample-library'
+import ShortcutOverlay from './shortcut-overlay'
 import Timeline, { type TransportState } from './timeline'
 import {
   LOOP_LENGTH_SEC,
@@ -16,6 +18,7 @@ import {
   risingEdgeRegions,
   type SampleRegion,
 } from './timeline-model'
+import { useLiveShortcuts } from './use-live-shortcuts'
 
 interface LiveProps {
   samples: SampleItem[]
@@ -33,6 +36,8 @@ export default function Live({ samples }: LiveProps) {
   const [regions, setRegions] = useState<SampleRegion[]>([])
   const [playheadSec, setPlayheadSec] = useState(0)
   const [transport, setTransport] = useState<TransportState>('stopped')
+  const [loopEnabled, setLoopEnabled] = useState(true)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [localSamples, setLocalSamples] = useState<SampleItem[]>([])
   const [localFolderName, setLocalFolderName] = useState<string | null>(null)
 
@@ -43,10 +48,12 @@ export default function Live({ samples }: LiveProps) {
   const regionsRef = useRef(regions)
   const playheadRef = useRef(playheadSec)
   const transportRef = useRef(transport)
+  const loopEnabledRef = useRef(loopEnabled)
   const localSamplesRef = useRef(localSamples)
   // Keep rAF / cleanup readers current without an extra effect tick.
   regionsRef.current = regions
   transportRef.current = transport
+  loopEnabledRef.current = loopEnabled
   localSamplesRef.current = localSamples
 
   useEffect(() => () => {
@@ -210,7 +217,28 @@ export default function Live({ samples }: LiveProps) {
       const deltaSec = Math.min((ts - lastTs) / 1000, 0.1)
       lastTs = ts
       const previous = playheadRef.current
-      const next = advancePlayhead(previous, deltaSec, LOOP_LENGTH_SEC)
+      let next: number
+      if (loopEnabledRef.current) {
+        next = advancePlayhead(previous, deltaSec, LOOP_LENGTH_SEC)
+      } else {
+        const unwrapped = previous + deltaSec
+        if (unwrapped >= LOOP_LENGTH_SEC) {
+          next = LOOP_LENGTH_SEC
+          playheadRef.current = next
+          setPlayheadSec(LOOP_LENGTH_SEC)
+          for (const region of risingEdgeRegions(
+            previous,
+            next,
+            regionsRef.current,
+            LOOP_LENGTH_SEC,
+          )) {
+            void triggerRegion(region)
+          }
+          setTransport('paused')
+          return
+        }
+        next = unwrapped
+      }
       // Keep full-precision playhead in the ref for rising-edge detection;
       // quantize React state to the 0.01s readout so steady frames bail out.
       playheadRef.current = next
@@ -241,6 +269,56 @@ export default function Live({ samples }: LiveProps) {
     setTransport(next)
   }
 
+  function seekPlayhead(timeSec: number) {
+    setPlayheadSec(timeSec)
+    playheadRef.current = timeSec
+  }
+
+  function handleShortcut(action: ShortcutAction) {
+    switch (action) {
+      case 'transport.spaceStop':
+        // Ableton Space: stop returns to start; play always starts from 0.
+        if (transportRef.current === 'playing') {
+          handleTransportChange('stopped')
+          return
+        }
+        seekPlayhead(0)
+        setTransport('playing')
+        return
+      case 'transport.continue':
+        // Shift+Space: pause/resume without relocating the playhead.
+        setTransport(transportRef.current === 'playing' ? 'paused' : 'playing')
+        return
+      case 'transport.home':
+        seekPlayhead(0)
+        return
+      case 'loop.toggle':
+        setLoopEnabled((previous) => !previous)
+        return
+      case 'browser.focusFilter':
+        document.querySelector<HTMLInputElement>('[data-testid="sample-filter"]')?.focus()
+        return
+      case 'overlay.shortcuts':
+        setShortcutsOpen(true)
+        return
+      case 'overlay.dismiss':
+        if (shortcutsOpen) {
+          setShortcutsOpen(false)
+          return
+        }
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur()
+        }
+        return
+      default: {
+        const _exhaustive: never = action
+        return _exhaustive
+      }
+    }
+  }
+
+  useLiveShortcuts({ onAction: handleShortcut, overlayOpen: shortcutsOpen })
+
   function handleDropSample(sample: SampleDragPayload, startSec: number) {
     const region = createSampleRegion({
       sampleId: sample.sampleId,
@@ -264,6 +342,7 @@ export default function Live({ samples }: LiveProps) {
   return (
     <main className="workstation-shell sg-grid sg-compact">
       <Head title="Ambient Live" />
+      <ShortcutOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <header className="workstation-region sg-col-1 sg-span-edge sg-row-1 sg-rows-2 half:sg-rows-1 full:sg-rows-1 flex items-center justify-between gap-3 border-b border-al-border bg-al-panel sg-p-1">
         <div className="flex items-baseline gap-3">
           <h1 className="text-sm font-medium uppercase tracking-[0.12em] text-al-text sg-leading-3">
@@ -363,11 +442,10 @@ export default function Live({ samples }: LiveProps) {
         regions={regions}
         playheadSec={playheadSec}
         transport={transport}
+        loopEnabled={loopEnabled}
+        onLoopEnabledChange={setLoopEnabled}
         onTransportChange={handleTransportChange}
-        onSeek={(timeSec) => {
-          setPlayheadSec(timeSec)
-          playheadRef.current = timeSec
-        }}
+        onSeek={seekPlayhead}
         onDropSample={handleDropSample}
       />
       <DeviceStrip

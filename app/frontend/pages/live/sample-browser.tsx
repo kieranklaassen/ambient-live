@@ -105,7 +105,15 @@ export default function SampleBrowser({ samples, localSamples, localFolderName, 
         </div>
       )}
       <div className="border-b border-al-border px-sg-2 py-sg-1">
-        <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter…" className="w-full rounded-[1px] border border-al-hairline bg-al-sunken px-1.5 py-1 text-xs text-al-text focus:border-al-accent focus:ring-0" aria-label="Filter samples" />
+        <input
+          type="search"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter…"
+          className="w-full rounded-[1px] border border-al-hairline bg-al-sunken px-1.5 py-1 text-xs text-al-text focus:border-al-accent focus:ring-0"
+          aria-label="Filter samples"
+          data-testid="sample-filter"
+        />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto bg-al-sunken">
         {visible.length === 0 ? (

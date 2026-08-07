@@ -9,6 +9,8 @@ interface TimelineProps {
   regions: SampleRegion[]
   playheadSec: number
   transport: TransportState
+  loopEnabled: boolean
+  onLoopEnabledChange: (enabled: boolean) => void
   onTransportChange: (next: TransportState) => void
   onSeek: (timeSec: number) => void
   onDropSample: (sample: SampleDragPayload, startSec: number) => void
@@ -19,6 +21,8 @@ export default function Timeline({
   regions,
   playheadSec,
   transport,
+  loopEnabled,
+  onLoopEnabledChange,
   onTransportChange,
   onSeek,
   onDropSample,
@@ -73,6 +77,20 @@ export default function Timeline({
             data-testid="transport-stop"
           >
             Stop
+          </button>
+          <button
+            type="button"
+            onClick={() => onLoopEnabledChange(!loopEnabled)}
+            className={`rounded-[1px] border px-2.5 py-1 text-[11px] uppercase tracking-wide ${
+              loopEnabled
+                ? 'border-al-accent bg-al-accent-soft text-al-text'
+                : 'border-al-hairline bg-al-raised text-al-muted'
+            }`}
+            aria-pressed={loopEnabled}
+            data-testid="transport-loop"
+            title="Toggle loop (L)"
+          >
+            Loop
           </button>
           <span
             className="ml-1 border border-al-border bg-al-sunken px-1.5 py-0.5 font-mono text-[10px] text-al-muted"
