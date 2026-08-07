@@ -7,7 +7,7 @@ import type { ShortcutAction } from './keymap'
 import { revokeLocalSampleUrls } from './local-folder'
 import { DEFAULT_REVERB_SETTINGS, type ReverbSettings } from './reverb-controls'
 import SampleBrowser from './sample-browser'
-import type { SampleDragPayload } from './sample-drag'
+import { isAllowedSampleUrl, type SampleDragPayload } from './sample-drag'
 import type { SampleItem } from './sample-library'
 import ShortcutOverlay from './shortcut-overlay'
 import Timeline, { type TransportState } from './timeline'
@@ -136,6 +136,7 @@ export default function Live({ samples }: LiveProps) {
   async function ensureSampleLoaded(sampleId: number, url: string): Promise<number | null> {
     const engine = engineRef.current
     if (!engine) return null
+    if (!isAllowedSampleUrl(url)) return null
 
     const previous = sampleLoadMutexRef.current
     let releaseMutex = () => {}
