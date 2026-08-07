@@ -36,14 +36,15 @@ export default function Live({ samples }: LiveProps) {
   const [localFolderName, setLocalFolderName] = useState<string | null>(null)
 
   const loadedSampleIdRef = useRef<number | null>(null)
+  const sampleLoadMutexRef = useRef(Promise.resolve())
   const regionsRef = useRef(regions)
   const playheadRef = useRef(playheadSec)
   const transportRef = useRef(transport)
   const localSamplesRef = useRef(localSamples)
-  useEffect(() => { regionsRef.current = regions }, [regions])
-  useEffect(() => { playheadRef.current = playheadSec }, [playheadSec])
-  useEffect(() => { transportRef.current = transport }, [transport])
-  useEffect(() => { localSamplesRef.current = localSamples }, [localSamples])
+  regionsRef.current = regions
+  playheadRef.current = playheadSec
+  transportRef.current = transport
+  localSamplesRef.current = localSamples
   useEffect(() => () => { revokeLocalSampleUrls(localSamplesRef.current) }, [])
 
   async function startAudio() {
@@ -102,12 +103,27 @@ export default function Live({ samples }: LiveProps) {
   async function ensureSampleLoaded(sampleId: number, url: string): Promise<number | null> {
     const engine = engineRef.current
     if (!engine) return null
-    if (loadedSampleIdRef.current === sampleId) return null
-    const response = await fetch(url)
-    const encoded = await response.arrayBuffer()
-    const { durationSec } = await engine.decodeAndLoadSample(encoded)
-    loadedSampleIdRef.current = sampleId
-    return durationSec
+
+    const previous = sampleLoadMutexRef.current
+    let releaseMutex = () => {}
+    sampleLoadMutexRef.current = new Promise<void>((resolve) => {
+      releaseMutex = resolve
+    })
+    await previous
+
+    try {
+      if (loadedSampleIdRef.current === sampleId) return null
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`Sample fetch failed (${response.status})`)
+      }
+      const encoded = await response.arrayBuffer()
+      const { durationSec } = await engine.decodeAndLoadSample(encoded)
+      loadedSampleIdRef.current = sampleId
+      return durationSec
+    } finally {
+      releaseMutex()
+    }
   }
 
   async function playSample(sample: SampleItem) {
