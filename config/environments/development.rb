@@ -7,6 +7,11 @@ Rails.application.configure do
   # (defaults for localhost remain in place since we append rather than replace).
   config.hosts << /[a-z0-9-]+\.trycloudflare\.com/
 
+  # Sign every request in as User.owner so the instrument opens with no login page.
+  # Set AMBIENT_AUTO_LOGIN=false to exercise the real login flow locally. No other
+  # environment sets this, so production authentication is untouched.
+  config.x.auto_login = ENV.fetch("AMBIENT_AUTO_LOGIN", "true") != "false"
+
   # Make code changes take effect immediately without server restart.
   config.enable_reloading = true
 

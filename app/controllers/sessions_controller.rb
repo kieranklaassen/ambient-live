@@ -3,6 +3,8 @@ class SessionsController < ApplicationController
   rate_limit to: 10, within: 3.minutes, only: :create, with: -> { redirect_to new_session_path, inertia: { errors: { email_address: "Too many attempts. Try again later." } } }
 
   def new
+    return redirect_to root_url if auto_login?
+
     render inertia: "auth/login"
   end
 

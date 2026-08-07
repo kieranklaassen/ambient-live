@@ -12,6 +12,16 @@ module SessionTestHelper
     Current.session&.destroy!
     cookies.delete("session_id")
   end
+
+  # Only config/environments/development.rb enables auto-login, so exercising it here
+  # means flipping the same config flag the concern reads.
+  def with_auto_login
+    previous = Rails.configuration.x.auto_login
+    Rails.configuration.x.auto_login = true
+    yield
+  ensure
+    Rails.configuration.x.auto_login = previous
+  end
 end
 
 ActiveSupport.on_load(:action_dispatch_integration_test) do

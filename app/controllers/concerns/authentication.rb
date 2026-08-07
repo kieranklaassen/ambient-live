@@ -22,11 +22,22 @@ module Authentication
     end
 
     def resume_session
-      Current.session ||= find_session_by_cookie
+      Current.session ||= find_session_by_cookie || start_auto_login_session
     end
 
     def find_session_by_cookie
       Session.find_by(id: cookies.signed[:session_id]) if cookies.signed[:session_id]
+    end
+
+    # Local dev convenience for this single-owner instrument: sign in as the owner so the
+    # app opens straight into the live page. Only development sets this config, so the
+    # login page stays mandatory in production.
+    def auto_login?
+      Rails.configuration.x.auto_login.present?
+    end
+
+    def start_auto_login_session
+      start_new_session_for(User.owner) if auto_login?
     end
 
     def request_authentication
