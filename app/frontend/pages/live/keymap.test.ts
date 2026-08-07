@@ -63,6 +63,14 @@ describe('resolveShortcutAction', () => {
     expect(resolveShortcutAction(event({ key: 'Escape', typing: true }))).toBe('overlay.dismiss')
   })
 
+  it('suppresses shortcuts while overlay is open except Escape', () => {
+    expect(resolveShortcutAction(event({ key: ' ', code: 'Space', overlayOpen: true }))).toBeNull()
+    expect(resolveShortcutAction(event({ key: 'l', code: 'KeyL', overlayOpen: true }))).toBeNull()
+    expect(resolveShortcutAction(event({ key: 'Home', code: 'Home', overlayOpen: true }))).toBeNull()
+    expect(resolveShortcutAction(event({ key: '?', code: 'Slash', overlayOpen: true }))).toBeNull()
+    expect(resolveShortcutAction(event({ key: 'Escape', overlayOpen: true }))).toBe('overlay.dismiss')
+  })
+
   it('ignores key repeat', () => {
     expect(resolveShortcutAction(event({ key: ' ', code: 'Space', repeat: true }))).toBeNull()
   })

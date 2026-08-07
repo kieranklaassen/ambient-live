@@ -157,6 +157,10 @@ export function resolveShortcutAction(event: KeyEventDescriptor): ShortcutAction
 
   if (event.typing) return null
 
+  // While a dismissible overlay is open, only Escape acts — avoid transport /
+  // loop / seek firing while the user reads the cheat sheet.
+  if (event.overlayOpen) return null
+
   // "?" can arrive as Shift+/ depending on layout — accept both key and code.
   if (bareKey(event) && (event.key === '?' || (event.code === 'Slash' && event.shiftKey))) {
     return 'overlay.shortcuts'
