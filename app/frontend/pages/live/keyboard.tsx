@@ -71,7 +71,7 @@ export default function Keyboard({ enabled, onNoteOn, onNoteOff, compact = false
   }, [enabled, press, release])
 
   return (
-    <div className="flex items-end gap-1" role="group" aria-label="Playing surface">
+    <div className="flex items-end gap-px" role="group" aria-label="Playing surface">
       {KEYS.map(({ note, label, key, black }) => (
         <button
           key={note}
@@ -84,17 +84,17 @@ export default function Keyboard({ enabled, onNoteOn, onNoteOff, compact = false
           onPointerUp={() => release(note)}
           onPointerCancel={() => release(note)}
           onPointerLeave={() => release(note)}
-          className={`flex flex-col items-center justify-end rounded-b-md pb-2 text-xs transition-colors select-none disabled:opacity-40 ${
+          className={`flex flex-col items-center justify-end rounded-[1px] border border-al-border pb-1.5 text-[10px] uppercase tracking-wide transition-colors select-none disabled:opacity-40 ${
             black
               ? compact
-                ? 'h-16 w-7 bg-zinc-800 text-zinc-500 hover:bg-zinc-700 active:bg-teal-800'
-                : 'h-24 w-9 bg-zinc-800 text-zinc-500 hover:bg-zinc-700 active:bg-teal-800'
+                ? 'h-14 w-6 bg-al-key-black text-al-dim hover:bg-al-chrome active:bg-al-accent active:text-al-chrome'
+                : 'h-20 w-8 bg-al-key-black text-al-dim hover:bg-al-chrome active:bg-al-accent active:text-al-chrome'
               : compact
-                ? 'h-24 w-9 bg-zinc-200 text-zinc-600 hover:bg-white active:bg-teal-200'
-                : 'h-36 w-12 bg-zinc-200 text-zinc-600 hover:bg-white active:bg-teal-200'
+                ? 'h-20 w-8 bg-al-key-white text-al-chrome hover:brightness-110 active:bg-al-accent'
+                : 'h-28 w-10 bg-al-key-white text-al-chrome hover:brightness-110 active:bg-al-accent'
           }`}
         >
-          <span className="font-mono uppercase">{key}</span>
+          <span>{key}</span>
           {!compact && <span className="text-[10px] opacity-60">{label}</span>}
         </button>
       ))}

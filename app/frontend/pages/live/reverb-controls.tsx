@@ -55,7 +55,7 @@ export default function ReverbControls({
               : 'grid grid-cols-[6rem_1fr_3.5rem] items-center gap-3 text-sm'
           }
         >
-          <span className="text-zinc-400">{label}</span>
+          <span className="uppercase tracking-wide text-al-muted">{label}</span>
           <input
             type="range"
             min={min}
@@ -64,9 +64,9 @@ export default function ReverbControls({
             disabled={!enabled}
             value={settings[field]}
             onChange={(e) => onChange(field, param, Number(e.target.value))}
-            className="accent-teal-500 disabled:opacity-40"
+            className="accent-al-accent disabled:opacity-40"
           />
-          <span className="text-right font-mono text-[10px] text-zinc-500">
+          <span className="text-right font-mono text-[10px] text-al-dim">
             {field === 'predelayMs' ? `${settings[field]}ms` : settings[field].toFixed(2)}
           </span>
         </label>
