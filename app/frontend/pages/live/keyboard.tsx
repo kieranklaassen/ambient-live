@@ -32,11 +32,11 @@ interface KeyboardProps {
 function keySizeClass(black: boolean, compact: boolean): string {
   if (black) {
     return compact
-      ? 'h-14 w-6 bg-al-key-black text-al-dim hover:bg-al-chrome active:bg-al-accent active:text-al-chrome'
+      ? 'h-12 w-6 bg-al-key-black text-al-dim hover:bg-al-chrome active:bg-al-accent active:text-al-chrome'
       : 'h-20 w-8 bg-al-key-black text-al-dim hover:bg-al-chrome active:bg-al-accent active:text-al-chrome'
   }
   return compact
-    ? 'h-20 w-8 bg-al-key-white text-al-chrome hover:brightness-110 active:bg-al-accent'
+    ? 'h-18 w-8 bg-al-key-white text-al-chrome hover:brightness-110 active:bg-al-accent'
     : 'h-28 w-10 bg-al-key-white text-al-chrome hover:brightness-110 active:bg-al-accent'
 }
 
