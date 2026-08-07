@@ -169,7 +169,7 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
 
   if (status.kind === 'unsupported') {
     return (
-      <p className="mt-3 text-xs text-al-dim" data-testid="midi-status">
+      <p className="mt-3 text-xs text-zinc-600" data-testid="midi-status">
         MIDI not available in this browser.
       </p>
     )
@@ -182,26 +182,26 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
           type="button"
           disabled={!enabled || status.kind === 'connecting'}
           onClick={() => void connectMidi()}
-          className="rounded-[1px] border border-al-hairline px-3 py-1.5 text-sm text-al-text transition hover:border-zinc-500 hover:text-white disabled:opacity-40"
+          className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:opacity-40"
         >
           {status.kind === 'connecting' ? 'Connecting…' : 'Connect MIDI'}
         </button>
       )}
 
       {status.kind === 'denied' && (
-        <p className="text-xs text-al-danger" data-testid="midi-status">
+        <p className="text-xs text-red-400" data-testid="midi-status">
           MIDI permission denied — {status.message}. Pointer and computer keys still work.
         </p>
       )}
 
       {status.kind === 'ready' && (
-        <label className="flex flex-col gap-1 text-xs text-al-muted">
+        <label className="flex flex-col gap-1 text-xs text-zinc-500">
           MIDI input
           <select
             value={selectedId}
             disabled={!enabled}
             onChange={(event) => selectInput(event.target.value)}
-            className="rounded-[1px] border border-al-hairline bg-al-sunken px-2 py-1.5 text-sm text-al-text disabled:opacity-40"
+            className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-200 disabled:opacity-40"
             data-testid="midi-input-select"
           >
             <option value="">Select a device…</option>
@@ -212,7 +212,7 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
             ))}
           </select>
           {inputs.length === 0 && (
-            <span className="text-al-dim">No MIDI inputs found — plug in a controller.</span>
+            <span className="text-zinc-600">No MIDI inputs found — plug in a controller.</span>
           )}
         </label>
       )}
