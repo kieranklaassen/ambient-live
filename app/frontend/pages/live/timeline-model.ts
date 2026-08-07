@@ -74,6 +74,23 @@ export function loopIntervalContains(
   return point > from || point <= to
 }
 
+/** Rising-edge regions whose startSec was crossed while the playhead advanced. */
+export function risingEdgeRegions<T extends Pick<SampleRegion, 'id' | 'startSec'>>(
+  previousPlayheadSec: number,
+  currentPlayheadSec: number,
+  regions: readonly T[],
+  loopLengthSec: number = LOOP_LENGTH_SEC,
+): T[] {
+  return regions.filter((region) =>
+    loopIntervalContains(
+      previousPlayheadSec,
+      currentPlayheadSec,
+      region.startSec,
+      loopLengthSec,
+    ),
+  )
+}
+
 /** Rising-edge region ids whose startSec was crossed while the playhead advanced. */
 export function risingEdgeRegionIds(
   previousPlayheadSec: number,
@@ -81,20 +98,12 @@ export function risingEdgeRegionIds(
   regions: readonly Pick<SampleRegion, 'id' | 'startSec'>[],
   loopLengthSec: number = LOOP_LENGTH_SEC,
 ): string[] {
-  const hits: string[] = []
-  for (const region of regions) {
-    if (
-      loopIntervalContains(
-        previousPlayheadSec,
-        currentPlayheadSec,
-        region.startSec,
-        loopLengthSec,
-      )
-    ) {
-      hits.push(region.id)
-    }
-  }
-  return hits
+  return risingEdgeRegions(
+    previousPlayheadSec,
+    currentPlayheadSec,
+    regions,
+    loopLengthSec,
+  ).map((region) => region.id)
 }
 
 export function advancePlayhead(

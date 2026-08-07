@@ -4,22 +4,36 @@
 @plugin '@tailwindcss/typography';
 @plugin '@tailwindcss/forms';
 
+/*
+  Color/surface: paper.design–inspired water→grass chill fields + soft grain.
+  Structure: swiss-grid (sg-*). Control density: Ableton-flat (squared, dense).
+  Token names keep the `al-*` prefix used by the live shell components.
+*/
 @theme {
   --font-ui: 'Futura', 'Futura PT', 'Jost', 'Century Gothic', ui-sans-serif, system-ui, sans-serif;
-  --color-al-chrome: #1a1a1a;
-  --color-al-panel: #2b2b2b;
-  --color-al-raised: #333333;
-  --color-al-sunken: #222222;
-  --color-al-border: #0f0f0f;
-  --color-al-hairline: #3a3a3a;
-  --color-al-text: #d4d4d4;
-  --color-al-muted: #8c8c8c;
-  --color-al-dim: #5e5e5e;
-  --color-al-accent: #ff7a45;
-  --color-al-accent-soft: #ff7a4548;
-  --color-al-key-white: #cfcfcf;
-  --color-al-key-black: #1f1f1f;
-  --color-al-danger: #e57373;
+
+  /* Water / moss / sage — desaturated ambient fields */
+  --color-al-chrome: #0e1c1a;
+  --color-al-panel: #173028;
+  --color-al-raised: #214038;
+  --color-al-sunken: #0b1614;
+  --color-al-border: #071210;
+  --color-al-hairline: #3a534c;
+  --color-al-text: #d7e4df;
+  --color-al-muted: #8eaaa1;
+  --color-al-dim: #5d756d;
+  --color-al-accent: #5fafa0;
+  --color-al-accent-soft: #5fafa045;
+  --color-al-key-white: #c9d8d2;
+  --color-al-key-black: #132420;
+  --color-al-danger: #d27a7a;
+
+  /* Soft field washes (paper-texture layered color feel, CSS-only) */
+  --color-al-wash-water: #163845;
+  --color-al-wash-pool: #1c3f3a;
+  --color-al-wash-moss: #2a4534;
+  --color-al-wash-sage: #3a5240;
+
   --spacing-sg-1: 6px;
   --spacing-sg-2: 12px;
   --spacing-sg-3: 18px;
@@ -30,21 +44,66 @@
   .workstation-shell.sg-grid {
     font-family: var(--font-ui);
     color: var(--color-al-text);
+    /* Gentle water→grass wash; grain sits in a static ::before so the
+       timeline playhead can animate without re-rasterizing noise each frame. */
     background-color: var(--color-al-chrome);
-    --sg-line-color: rgb(255 255 255 / 0.045);
-    --sg-rhythm-guide-color: rgb(255 255 255 / 0.03);
-    --sg-baseline-guide-color: rgb(255 255 255 / 0.02);
+    background-image:
+      radial-gradient(120% 80% at 12% 0%, color-mix(in srgb, var(--color-al-wash-water) 55%, transparent), transparent 58%),
+      radial-gradient(90% 70% at 88% 18%, color-mix(in srgb, var(--color-al-wash-moss) 42%, transparent), transparent 60%),
+      linear-gradient(165deg, var(--color-al-wash-pool) 0%, var(--color-al-chrome) 42%, var(--color-al-wash-sage) 100%);
+    --sg-line-color: rgb(180 210 200 / 0.05);
+    --sg-rhythm-guide-color: rgb(180 210 200 / 0.035);
+    --sg-baseline-guide-color: rgb(180 210 200 / 0.02);
     min-block-size: 100dvh;
     overflow: hidden;
+    isolation: isolate;
   }
+
+  /* Lightweight paper grain — fixed overlay, pointer-events none, no filter animation */
+  .workstation-shell.sg-grid::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.14;
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.7 0 0 0 0 0.65 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 180px 180px;
+  }
+
+  .workstation-shell.sg-grid > * {
+    position: relative;
+    z-index: 1;
+  }
+
   .workstation-shell :focus-visible {
     outline: 1px solid var(--color-al-accent);
     outline-offset: 1px;
   }
+
   .workstation-region {
     box-sizing: border-box;
     min-inline-size: 0;
     min-block-size: 0;
     overflow: hidden;
+  }
+
+  /* Matte panel surfaces — no glass, subtle wash only */
+  .workstation-region.bg-al-panel {
+    background-image: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-al-wash-moss) 35%, var(--color-al-panel)) 0%,
+      var(--color-al-panel) 100%
+    );
+  }
+
+  .workstation-region.bg-al-chrome {
+    background-image: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-al-wash-water) 28%, var(--color-al-sunken)) 0%,
+      var(--color-al-sunken) 55%,
+      color-mix(in srgb, var(--color-al-wash-moss) 22%, var(--color-al-sunken)) 100%
+    );
   }
 }

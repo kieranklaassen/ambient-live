@@ -45,8 +45,11 @@ export function revokeLocalSampleUrls(samples: readonly Pick<SampleItem, 'url'>[
   }
 }
 
-async function collectAudioFilesFromDirectory(handle: FileSystemDirectoryHandle, prefix = ''): Promise<File[]> {
-  const files: File[] = []
+async function collectAudioFilesFromDirectory(
+  handle: FileSystemDirectoryHandle,
+  prefix = '',
+  files: File[] = [],
+): Promise<File[]> {
   for await (const entry of handle.values()) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name
     if (entry.kind === 'file') {
@@ -56,7 +59,7 @@ async function collectAudioFilesFromDirectory(handle: FileSystemDirectoryHandle,
       continue
     }
     if (entry.kind === 'directory') {
-      files.push(...(await collectAudioFilesFromDirectory(entry, path)))
+      await collectAudioFilesFromDirectory(entry, path, files)
     }
   }
   return files

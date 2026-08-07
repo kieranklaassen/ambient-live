@@ -108,7 +108,7 @@ R-IDs below are plan-local. Citations into the origin product plan use the `orig
 - Live-page three-region shell and visual polish within the existing zinc/teal language
 - Active Storage sample sidebar (browse, search/filter optional, upload, delete, audition, drag source)
 - Session-local folder/file browse in the sidebar (File System Access with multi-file fallback; not a second SoT)
-- Ableton-inspired visual treatment (centralized gray/type/accent tokens)
+- Ableton-inspired control density + Futura-like type; paper water/grass color tokens + soft grain
 - Paint-native timeline canvas with playhead, transport, sample regions, playhead-triggered sample playback
 - Bottom strip for reverb + keyboard + MIDI controls
 - Pure-TS helpers for time mapping / region model with unit tests
@@ -145,7 +145,7 @@ R-IDs below are plan-local. Citations into the origin product plan use the `orig
 
 Pipeline defaults for open areas (unvalidated agent bets — correct in review if wrong):
 
-- **Visual language:** Ambient-native paint canvas / soft regions for the timeline, not an Ableton clip grid. Ableton informs spatial roles only (browser left, arrangement center, devices bottom).
+- **Visual language:** Ambient-native paint canvas / soft regions for the timeline, not an Ableton clip grid. Ableton informs spatial roles and control density; swiss-grid informs layout rhythm; paper water/grass tokens inform color/surface (KTD7, KTD10).
 - **Bottom-strip devices now:** Ship the existing reverb device plus relocated keyboard/MIDI play surfaces. Delays and granular stay deferred.
 - **Sidebar content:** Active Storage library remains the uploaded/imported SoT; local folder browse is an additional session-only Places source (`showDirectoryPicker` with multi-file fallback).
 - **Drag interaction:** Drag-sample-to-timeline creates a sample region; sidebar retains Play/Stop audition. No Ableton-style rack/slot drop targets in the center pane.
@@ -158,13 +158,12 @@ Pipeline defaults for open areas (unvalidated agent bets — correct in review i
 - KTD2. **Keep the audio engine free of Inertia/server state; shell and timeline state live in React beside the page.** Instantiates origin engine boundary (origin R16) — UI may hold composition regions; `AudioEngine` still receives only PCM, note, and param messages.
 - KTD3. **No VST/AU hosting and no new device DSP in this slice; bottom strip wraps existing reverb + play surfaces.** (session-settled: user-approved — chosen over day-one plugin hosting.) Instantiates Product Key Decision Governs R11, R12.
 - KTD4. **Left sidebar Places browser: Active Storage library (SoT for uploads) plus session-local folder/file browse for audition/drag — not a second persistence SoT.** (session-settled: user-directed follow-up — chosen over Active Storage-only sidebar: musicians need local folder access without uploading everything.) Instantiates Product Key Decision Governs R4, R5, R6 / origin R12–R13. Prefer File System Access `showDirectoryPicker`; fallback to multi-file / directory input when unavailable.
-- KTD10. **Ableton-inspired visual language via centralized tokens (neutral gray chrome, geometric UI sans, sparse orange accent, 0–2px radii, flat dense controls) — not teal/card/glass aesthetics.** (session-settled: user-directed follow-up.) Instantiates layout identity without adopting Ableton clip-grid composition.
 - KTD5. **Center timeline is a paint-native canvas with a client-side region model and playhead clock in TypeScript; first material type is sample regions from drag-drop.** Instantiates Product Key Decision Governs R7, R8, R9, R10. Rejected: Session-view clip grid; deferred: full synth paint-stroke encoder.
 - KTD6. **Playhead-triggered sample playback calls the existing decode/load + `playSample` path; if a prior sample is still the loaded buffer, skip re-decode when the same sample id retriggers.** Accept single-voice sample stealing as v1 timeline behavior.
-- KTD7. **Shell structure uses `@kieranklaassen/swiss-grid` (`sg-grid sg-compact` + placement/padding/leading utilities) in `live/index.tsx` with extracted presentational components under `app/frontend/pages/live/`.** (session-settled: user-directed follow-up.) Ableton tokens own chrome/type/accent (KTD10); swiss-grid owns modular structure/rhythm. Module lines are muted for Ableton surface readability.
-- KTD10. **Ableton-inspired visual language via centralized tokens (neutral gray chrome, geometric UI sans, sparse orange accent, 0–2px radii, flat dense controls).** (session-settled: user-directed follow-up.)
+- KTD7. **Shell structure uses `@kieranklaassen/swiss-grid` (`sg-grid sg-compact` + placement/padding/leading utilities) in `live/index.tsx` with extracted presentational components under `app/frontend/pages/live/`.** (session-settled: user-directed follow-up.) Ableton density owns chrome behavior; swiss-grid owns modular structure/rhythm; KTD10 owns color/surface. Module lines stay muted for surface readability.
 - KTD8. **Region duration defaults to the decoded audio duration once known; until decode completes, use a short placeholder duration so the region is visible.** Drop time sets `startSec` from pointer x; vertical drop position is ignored in v1 (single paint lane).
 - KTD9. **Trigger policy: rising-edge only while transport is playing — fire once when playhead crosses `startSec` from before to after; if playback starts with the playhead already inside a region, do not auto-fire until a future loop crosses the start again.** Predictable and easy to unit-test; avoids sustain-style retrigger every frame.
+- KTD10. **Color/surface: paper.design–inspired water→grass chill palette (desaturated blues/teals through moss/sage) with lightweight CSS/SVG paper grain and gentle gradient washes; structure remains Ableton-flat dense squared controls + Futura-like geometric UI sans (0–2px radii). Tokens centralized as `al-*` CSS variables / Tailwind theme — no scattered hex. Prefer static grain overlay over animated shaders so timeline playhead motion stays cheap.** (session-settled: user-directed follow-up — supersedes earlier Ableton neutral-gray/orange accent as the color system; Ableton still owns control density/chrome behavior.)
 
 ### High-Level Technical Design
 
@@ -334,7 +333,7 @@ U1 (shell) first so regions exist. U2 (sidebar) and U4 (device strip) can procee
 - R1–R12 satisfied; AE1–AE6 covered by tests and/or smoke.
 - Session-settled decisions preserved: paint timeline (not clip grid), built-ins only, Active Storage sidebar SoT, Rails live page target (not BB plugin).
 - No new VST/hosting surface; local folder is session browse only (not a sample SoT); no smash of unrelated MIDI history — work lands on a dedicated feature branch.
-- Ableton-like visual treatment via shared CSS/Tailwind tokens (KTD10).
+- Paper water/grass color + grain via shared CSS/Tailwind tokens; Ableton density + swiss-grid structure (KTD7, KTD10).
 - Abandoned experiment code from dead-end layout attempts removed from the diff.
 
 ---

@@ -27,6 +27,17 @@ interface KeyboardProps {
   compact?: boolean
 }
 
+function keySizeClass(black: boolean, compact: boolean): string {
+  if (black) {
+    return compact
+      ? 'h-14 w-6 bg-al-key-black text-al-dim hover:bg-al-chrome active:bg-al-accent active:text-al-chrome'
+      : 'h-20 w-8 bg-al-key-black text-al-dim hover:bg-al-chrome active:bg-al-accent active:text-al-chrome'
+  }
+  return compact
+    ? 'h-20 w-8 bg-al-key-white text-al-chrome hover:brightness-110 active:bg-al-accent'
+    : 'h-28 w-10 bg-al-key-white text-al-chrome hover:brightness-110 active:bg-al-accent'
+}
+
 export default function Keyboard({ enabled, onNoteOn, onNoteOff, compact = false }: KeyboardProps) {
   const heldNotes = useRef<Set<number>>(new Set())
 
@@ -84,15 +95,7 @@ export default function Keyboard({ enabled, onNoteOn, onNoteOff, compact = false
           onPointerUp={() => release(note)}
           onPointerCancel={() => release(note)}
           onPointerLeave={() => release(note)}
-          className={`flex flex-col items-center justify-end rounded-[1px] border border-al-border pb-1.5 text-[10px] uppercase tracking-wide transition-colors select-none disabled:opacity-40 ${
-            black
-              ? compact
-                ? 'h-14 w-6 bg-al-key-black text-al-dim hover:bg-al-chrome active:bg-al-accent active:text-al-chrome'
-                : 'h-20 w-8 bg-al-key-black text-al-dim hover:bg-al-chrome active:bg-al-accent active:text-al-chrome'
-              : compact
-                ? 'h-20 w-8 bg-al-key-white text-al-chrome hover:brightness-110 active:bg-al-accent'
-                : 'h-28 w-10 bg-al-key-white text-al-chrome hover:brightness-110 active:bg-al-accent'
-          }`}
+          className={`flex flex-col items-center justify-end rounded-[1px] border border-al-border pb-1.5 text-[10px] uppercase tracking-wide transition-colors select-none disabled:opacity-40 ${keySizeClass(black, compact)}`}
         >
           <span>{key}</span>
           {!compact && <span className="text-[10px] opacity-60">{label}</span>}
