@@ -38,6 +38,8 @@ export default function Live({ samples }: LiveProps) {
 
   const loadedSampleIdRef = useRef<number | null>(null)
   const sampleLoadMutexRef = useRef(Promise.resolve())
+  const sampleDurationsRef = useRef(new Map<number, number>())
+  const regionTriggerSeqRef = useRef(0)
   const regionsRef = useRef(regions)
   const playheadRef = useRef(playheadSec)
   const transportRef = useRef(transport)
@@ -135,7 +137,11 @@ export default function Live({ samples }: LiveProps) {
     await previous
 
     try {
-      if (loadedSampleIdRef.current === sampleId) return null
+      if (loadedSampleIdRef.current === sampleId) {
+        // Cached hit: still report the decoded duration so regions dropped
+        // after an audition or earlier drop get their real width.
+        return sampleDurationsRef.current.get(sampleId) ?? null
+      }
       const response = await fetch(url)
       if (!response.ok) {
         throw new Error(`Sample fetch failed (${response.status})`)
@@ -143,6 +149,7 @@ export default function Live({ samples }: LiveProps) {
       const encoded = await response.arrayBuffer()
       const { durationSec } = await engine.decodeAndLoadSample(encoded)
       loadedSampleIdRef.current = sampleId
+      sampleDurationsRef.current.set(sampleId, durationSec)
       return durationSec
     } finally {
       releaseMutex()
@@ -173,9 +180,13 @@ export default function Live({ samples }: LiveProps) {
     async (region: SampleRegion) => {
       const engine = engineRef.current
       if (!engine) return
+      const triggerSeq = ++regionTriggerSeqRef.current
       try {
         const durationSec = await ensureSampleLoaded(region.sampleId, region.url)
         if (durationSec != null) setRegionDuration(region.id, durationSec)
+        // Only the most recent trigger may start playback; a slow load must
+        // not fire late after a newer trigger or after the transport stopped.
+        if (triggerSeq !== regionTriggerSeqRef.current || transportRef.current !== 'playing') return
         engine.playSample()
         setPlayingSampleId(region.sampleId)
       } catch {
