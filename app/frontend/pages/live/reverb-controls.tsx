@@ -1,4 +1,7 @@
+import { useRef, useState } from 'react'
+
 import { PARAM, type ParamId } from '@/audio/audio-engine'
+import { DevicePanel, Fader, Knob, type ControlUnit } from '@/components/daw'
 
 export interface ReverbSettings {
   mix: number
@@ -16,61 +19,114 @@ export const DEFAULT_REVERB_SETTINGS: ReverbSettings = {
   masterGain: 0.8,
 }
 
-const SLIDERS: {
-  field: keyof ReverbSettings
+const REVERB_KNOBS: {
+  field: Exclude<keyof ReverbSettings, 'masterGain'>
   param: ParamId
   label: string
   min: number
   max: number
   step: number
+  unit: ControlUnit
 }[] = [
-  { field: 'mix', param: PARAM.reverbMix, label: 'Mix', min: 0, max: 1, step: 0.01 },
-  { field: 'decay', param: PARAM.reverbDecay, label: 'Decay', min: 0, max: 0.99, step: 0.01 },
-  { field: 'damping', param: PARAM.reverbDamping, label: 'Damping', min: 0, max: 0.99, step: 0.01 },
-  { field: 'predelayMs', param: PARAM.reverbPredelayMs, label: 'Pre-delay', min: 0, max: 250, step: 1 },
-  { field: 'masterGain', param: PARAM.masterGain, label: 'Master', min: 0, max: 1.5, step: 0.01 },
+  { field: 'mix', param: PARAM.reverbMix, label: 'Mix', min: 0, max: 1, step: 0.01, unit: 'ratio' },
+  {
+    field: 'decay',
+    param: PARAM.reverbDecay,
+    label: 'Decay',
+    min: 0,
+    max: 0.99,
+    step: 0.01,
+    unit: 'ratio',
+  },
+  {
+    field: 'damping',
+    param: PARAM.reverbDamping,
+    label: 'Damping',
+    min: 0,
+    max: 0.99,
+    step: 0.01,
+    unit: 'ratio',
+  },
+  // "Predelay" (no hyphen) so the 9px caps label cannot break across lines.
+  {
+    field: 'predelayMs',
+    param: PARAM.reverbPredelayMs,
+    label: 'Predelay',
+    min: 0,
+    max: 250,
+    step: 1,
+    unit: 'ms',
+  },
 ]
 
-interface ReverbControlsProps {
+interface DeviceControlsProps {
   enabled: boolean
   settings: ReverbSettings
   onChange: (field: keyof ReverbSettings, param: ParamId, value: number) => void
-  compact?: boolean
 }
 
-export default function ReverbControls({
-  enabled,
-  settings,
-  onChange,
-  compact = false,
-}: ReverbControlsProps) {
+export default function ReverbControls({ enabled, settings, onChange }: DeviceControlsProps) {
+  const [powered, setPowered] = useState(true)
+  // Bypass drives the existing wet-mix param to 0; the pre-bypass mix is
+  // restored on power-on. Knobs are locked while bypassed so the remembered
+  // value cannot go stale.
+  const bypassedMixRef = useRef(settings.mix)
+
+  function handlePowerChange(next: boolean) {
+    setPowered(next)
+    if (next) {
+      onChange('mix', PARAM.reverbMix, bypassedMixRef.current)
+      return
+    }
+    bypassedMixRef.current = settings.mix
+    onChange('mix', PARAM.reverbMix, 0)
+  }
+
   return (
-    <div className={compact ? 'grid grid-cols-2 gap-x-3 gap-y-2' : 'grid gap-4'}>
-      {SLIDERS.map(({ field, param, label, min, max, step }) => (
-        <label
-          key={field}
-          className={
-            compact
-              ? 'grid grid-cols-[3.5rem_1fr_2.75rem] items-center gap-2 text-xs'
-              : 'grid grid-cols-[6rem_1fr_3.5rem] items-center gap-3 text-sm'
-          }
-        >
-          <span className="uppercase tracking-wide text-al-muted">{label}</span>
-          <input
-            type="range"
+    <DevicePanel
+      title="Reverb"
+      powered={powered}
+      disabled={!enabled}
+      onPowerChange={handlePowerChange}
+      data-testid="device-reverb"
+    >
+      <div className="grid grid-cols-4 justify-items-center gap-x-1 gap-y-sg-1">
+        {REVERB_KNOBS.map(({ field, param, label, min, max, step, unit }) => (
+          <Knob
+            key={field}
+            label={label}
+            value={settings[field]}
             min={min}
             max={max}
             step={step}
-            disabled={!enabled}
-            value={settings[field]}
-            onChange={(e) => onChange(field, param, Number(e.target.value))}
-            className="accent-al-accent disabled:opacity-40"
+            defaultValue={DEFAULT_REVERB_SETTINGS[field]}
+            unit={unit}
+            size={40}
+            disabled={!enabled || !powered}
+            onChange={(value) => onChange(field, param, value)}
+            data-testid={`reverb-${field}`}
           />
-          <span className="text-right font-mono text-[10px] text-al-dim">
-            {field === 'predelayMs' ? `${settings[field]}ms` : settings[field].toFixed(2)}
-          </span>
-        </label>
-      ))}
-    </div>
+        ))}
+      </div>
+    </DevicePanel>
+  )
+}
+
+export function MasterControls({ enabled, settings, onChange }: DeviceControlsProps) {
+  return (
+    <DevicePanel title="Master" data-testid="device-master">
+      <Fader
+        label="Gain"
+        orientation="horizontal"
+        value={settings.masterGain}
+        min={0}
+        max={1.5}
+        step={0.01}
+        defaultValue={DEFAULT_REVERB_SETTINGS.masterGain}
+        disabled={!enabled}
+        onChange={(value) => onChange('masterGain', PARAM.masterGain, value)}
+        data-testid="master-gain"
+      />
+    </DevicePanel>
   )
 }
