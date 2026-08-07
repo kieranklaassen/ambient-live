@@ -108,6 +108,12 @@ export function useParamControl({
 
   function onPointerMove(event: PointerEvent<HTMLElement>) {
     if (!draggingRef.current || pointerIdRef.current !== event.pointerId) return
+    // The control can be disabled mid-drag (e.g. reverb bypass); pointer
+    // capture keeps delivering events, so end the drag instead of committing.
+    if (disabled) {
+      endPointer(event)
+      return
+    }
     fineRef.current = event.shiftKey
     const dy = event.clientY - lastYRef.current
     lastYRef.current = event.clientY
@@ -143,12 +149,15 @@ export function useParamControl({
       case 'ArrowUp':
       case 'ArrowRight':
         setInteracting(true)
-        commitValue(stepBy(liveValue, 1, step, min, max, fine))
+        // Step from the ref, not `liveValue` state: the ref updates
+        // synchronously on commit, while state lags until the next render and
+        // would make held/repeated key events recompute the same target.
+        commitValue(stepBy(liveValueRef.current, 1, step, min, max, fine))
         break
       case 'ArrowDown':
       case 'ArrowLeft':
         setInteracting(true)
-        commitValue(stepBy(liveValue, -1, step, min, max, fine))
+        commitValue(stepBy(liveValueRef.current, -1, step, min, max, fine))
         break
       case 'Home':
         commitValue(min)
