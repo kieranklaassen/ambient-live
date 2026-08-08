@@ -57,7 +57,12 @@ function Workstation() {
   const rpc = useRpc<typeof rpcContract>();
 
   const playerRef = useRef<SamplePlayer | null>(null);
+  const playerPromiseRef = useRef<Promise<SamplePlayer> | null>(null);
   const previewBaseRef = useRef<string | null>(null);
+  // Bumped whenever a slot's contents change so stale async loads abandon.
+  const loadGenerationsRef = useRef<number[]>(
+    Array.from({ length: SLOT_COUNT }, () => 0),
+  );
 
   const [query, setQuery] = useState("");
   const [entries, setEntries] = useState<BrowseEntry[]>([]);
@@ -107,6 +112,7 @@ function Workstation() {
     return () => {
       void playerRef.current?.close();
       playerRef.current = null;
+      playerPromiseRef.current = null;
     };
   }, []);
 
@@ -124,14 +130,25 @@ function Workstation() {
   }, [started]);
 
   // The AudioContext needs a gesture; every entry point routes through here.
-  const ensurePlayer = useCallback(async (): Promise<SamplePlayer> => {
-    const existing = playerRef.current;
-    if (existing) return existing;
-    const player = await SamplePlayer.start();
-    player.setMasterGain(masterGain);
-    playerRef.current = player;
-    setStarted(true);
-    return player;
+  // The in-flight promise is cached so overlapping first calls share one
+  // AudioContext instead of each starting their own.
+  const ensurePlayer = useCallback((): Promise<SamplePlayer> => {
+    const pending = playerPromiseRef.current;
+    if (pending) return pending;
+    const promise = (async () => {
+      try {
+        const player = await SamplePlayer.start();
+        player.setMasterGain(masterGain);
+        playerRef.current = player;
+        setStarted(true);
+        return player;
+      } catch (error) {
+        playerPromiseRef.current = null;
+        throw error;
+      }
+    })();
+    playerPromiseRef.current = promise;
+    return promise;
   }, [masterGain]);
 
   // Preview URLs expire, so a stale base refetches once before failing.
@@ -160,7 +177,9 @@ function Workstation() {
   );
 
   const loadIntoSlot = useCallback(
-    async (index: number, entry: BrowseEntry) => {
+    async (index: number, entry: Pick<BrowseEntry, "path" | "name">) => {
+      const generation = (loadGenerationsRef.current[index] ?? 0) + 1;
+      loadGenerationsRef.current[index] = generation;
       updateSlot(index, {
         path: entry.path,
         name: entry.name,
@@ -172,9 +191,13 @@ function Workstation() {
       try {
         const player = await ensurePlayer();
         const encoded = await fetchSample(entry.path);
-        await player.loadSlot(index, encoded);
+        const buffer = await player.decode(encoded);
+        // A newer load or a clear superseded this one while it was in flight.
+        if (loadGenerationsRef.current[index] !== generation) return;
+        player.setSlotBuffer(index, buffer);
         updateSlot(index, { loading: false, duration: player.durationOf(index) });
       } catch (error) {
+        if (loadGenerationsRef.current[index] !== generation) return;
         updateSlot(index, {
           loading: false,
           error: error instanceof Error ? error.message : String(error),
@@ -205,6 +228,7 @@ function Workstation() {
   );
 
   function clearSlot(index: number) {
+    loadGenerationsRef.current[index] = (loadGenerationsRef.current[index] ?? 0) + 1;
     playerRef.current?.clearSlot(index);
     setSlots((previous) =>
       previous.map((slot, i) => (i === index ? { ...EMPTY_SLOT } : slot)),
@@ -224,6 +248,11 @@ function Workstation() {
   function changeSlotGain(index: number, value: number) {
     updateSlot(index, { gain: value });
     playerRef.current?.setSlotGain(index, value);
+  }
+
+  function changeSlotLoop(index: number, loop: boolean) {
+    updateSlot(index, { loop });
+    playerRef.current?.setSlotLoop(index, loop);
   }
 
   return (
@@ -280,7 +309,12 @@ function Workstation() {
                 key={entry.path}
                 draggable
                 onDragStart={(event) => {
-                  event.dataTransfer.setData(DRAG_MIME, entry.path);
+                  // The payload carries everything the drop needs; the browse
+                  // list may refetch mid-drag and lose this entry.
+                  event.dataTransfer.setData(
+                    DRAG_MIME,
+                    JSON.stringify({ path: entry.path, name: entry.name }),
+                  );
                   event.dataTransfer.effectAllowed = "copy";
                 }}
                 className="cursor-grab rounded px-2 py-1.5 text-sm hover:bg-accent active:cursor-grabbing"
@@ -313,12 +347,12 @@ function Workstation() {
                 }}
                 onDragLeave={() => setDragSlot((current) => (current === index ? null : current))}
                 onDrop={(event) => {
-                  const path = event.dataTransfer.getData(DRAG_MIME);
-                  if (path === "") return;
+                  const raw = event.dataTransfer.getData(DRAG_MIME);
+                  if (raw === "") return;
                   event.preventDefault();
                   setDragSlot(null);
-                  const entry = entries.find((candidate) => candidate.path === path);
-                  if (entry) void loadIntoSlot(index, entry);
+                  const entry = JSON.parse(raw) as Pick<BrowseEntry, "path" | "name">;
+                  void loadIntoSlot(index, entry);
                 }}
                 className={cn(
                   "flex h-36 flex-col justify-between rounded-lg border border-border bg-card p-3 transition",
@@ -365,7 +399,7 @@ function Workstation() {
                   <button
                     type="button"
                     aria-pressed={slot.loop}
-                    onClick={() => updateSlot(index, { loop: !slot.loop })}
+                    onClick={() => changeSlotLoop(index, !slot.loop)}
                     className={cn(
                       "rounded border border-border px-2 py-1 text-xs",
                       slot.loop ? "bg-primary text-primary-foreground" : "text-muted-foreground",

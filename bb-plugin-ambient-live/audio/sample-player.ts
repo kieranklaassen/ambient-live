@@ -39,8 +39,13 @@ export class SamplePlayer {
     return new SamplePlayer(context);
   }
 
-  async loadSlot(slot: number, encoded: ArrayBuffer): Promise<void> {
-    const buffer = await this.context.decodeAudioData(encoded);
+  // Decode and commit are separate so callers can drop a stale decode before it
+  // overwrites a newer load on the same slot.
+  async decode(encoded: ArrayBuffer): Promise<AudioBuffer> {
+    return this.context.decodeAudioData(encoded);
+  }
+
+  setSlotBuffer(slot: number, buffer: AudioBuffer): void {
     this.stopSlot(slot);
     this.buffers.set(slot, buffer);
   }
@@ -82,6 +87,11 @@ export class SamplePlayer {
     };
     source.start();
     this.sources.set(slot, source);
+  }
+
+  setSlotLoop(slot: number, loop: boolean): void {
+    const source = this.sources.get(slot);
+    if (source) source.loop = loop;
   }
 
   stopSlot(slot: number): void {
