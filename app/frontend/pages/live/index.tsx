@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react'
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 
 import { AudioEngine, type LoadedSample, type ParamId } from '@/audio/audio-engine'
+import type { WaveformPeaks } from '@/audio/waveform'
 import DeviceStrip from './device-strip'
 import type { ShortcutAction } from './keymap'
 import { revokeLocalSampleUrls } from './local-folder'
@@ -44,6 +45,9 @@ export default function Live({ samples }: LiveProps) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [localSamples, setLocalSamples] = useState<SampleItem[]>([])
   const [localFolderName, setLocalFolderName] = useState<string | null>(null)
+  const [peaksBySampleId, setPeaksBySampleId] = useState<ReadonlyMap<number, WaveformPeaks>>(
+    new Map(),
+  )
 
   const {
     shellRef,
@@ -148,6 +152,10 @@ export default function Live({ samples }: LiveProps) {
     )
   }, [])
 
+  const changeClip = useCallback((clip: SampleRegion) => {
+    setRegions((previous) => previous.map((item) => (item.id === clip.id ? clip : item)))
+  }, [])
+
   async function ensureSampleLoaded(sampleId: number, url: string): Promise<LoadedSample | null> {
     const engine = engineRef.current
     if (!engine) return null
@@ -171,7 +179,9 @@ export default function Live({ samples }: LiveProps) {
       if (!response.ok) {
         throw new Error(`Sample fetch failed (${response.status})`)
       }
-      return await engine.loadSample(sampleId, await response.arrayBuffer())
+      const loaded = await engine.loadSample(sampleId, await response.arrayBuffer())
+      setPeaksBySampleId((previous) => new Map(previous).set(sampleId, loaded.peaks))
+      return loaded
     } finally {
       releaseMutex()
     }
@@ -459,6 +469,11 @@ export default function Live({ samples }: LiveProps) {
             for (const id of removedIds) {
               engineRef.current?.forgetSample(id)
             }
+            setPeaksBySampleId((previous) => {
+              const next = new Map(previous)
+              for (const id of removedIds) next.delete(id)
+              return next
+            })
           }
           setLocalSamples(next)
           setLocalFolderName(folderName)
@@ -481,6 +496,7 @@ export default function Live({ samples }: LiveProps) {
           rows: layout.contentRows,
         })}
         regions={regions}
+        peaksBySampleId={peaksBySampleId}
         playheadSec={playheadSec}
         transport={transport}
         loopEnabled={loopEnabled}
@@ -488,6 +504,7 @@ export default function Live({ samples }: LiveProps) {
         onTransportChange={handleTransportChange}
         onSeek={seekPlayhead}
         onDropSample={handleDropSample}
+        onClipChange={changeClip}
       />
       <DeviceStrip
         className="relative sg-col-1 sg-span-edge sg-row-1 sg-rows-1"
