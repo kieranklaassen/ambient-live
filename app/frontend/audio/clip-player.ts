@@ -4,6 +4,7 @@
 // clips share the plate reverb with everything else.
 
 import type { AudioEngine } from './audio-engine'
+import { fadeGain } from './fade'
 
 export interface ClipPlayback {
   buffer: AudioBuffer
@@ -34,21 +35,30 @@ export class ClipPlayer {
   play(key: string, playback: ClipPlayback, when: number): void {
     if (playback.durationSec <= 0) return
 
-    const start = Math.max(when, this.engine.currentTime)
-    const end = start + playback.durationSec
+    // A start that has already passed joins the clip partway in rather than
+    // replaying it from the trim point and overrunning its end.
+    const late = Math.max(0, this.engine.currentTime - when)
+    if (late >= playback.durationSec) return
+    const start = when + late
+    const end = when + playback.durationSec
+
     const source = this.engine.createBufferSource()
     const gain = this.engine.createGain()
     source.buffer = playback.buffer
     source.connect(gain)
     gain.connect(this.engine.clipDestination)
 
-    // Linear ramps, so the drawn fade slope is the applied gain.
-    const fadeInEnd = start + Math.min(playback.fadeInSec, playback.durationSec)
+    // Linear ramps against the clip's own timeline, so the drawn fade slope is
+    // the applied gain even when the clip is joined late.
+    const fadeInEnd = when + Math.min(playback.fadeInSec, playback.durationSec)
     const fadeOutStart = Math.max(fadeInEnd, end - playback.fadeOutSec)
-    gain.gain.setValueAtTime(playback.fadeInSec > 0 ? 0 : 1, start)
-    if (playback.fadeInSec > 0) gain.gain.linearRampToValueAtTime(1, fadeInEnd)
+    gain.gain.setValueAtTime(
+      fadeGain(late, playback.durationSec, playback.fadeInSec, playback.fadeOutSec),
+      start,
+    )
+    if (fadeInEnd > start) gain.gain.linearRampToValueAtTime(1, fadeInEnd)
     if (playback.fadeOutSec > 0) {
-      gain.gain.setValueAtTime(1, fadeOutStart)
+      if (fadeOutStart > start) gain.gain.setValueAtTime(1, fadeOutStart)
       gain.gain.linearRampToValueAtTime(0, end)
     }
 
@@ -59,7 +69,7 @@ export class ClipPlayer {
       gain.disconnect()
     }
     this.active.add(entry)
-    source.start(start, playback.offsetSec, playback.durationSec)
+    source.start(start, playback.offsetSec + late, playback.durationSec - late)
   }
 
   /**

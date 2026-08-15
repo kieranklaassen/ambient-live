@@ -98,34 +98,19 @@ export function setFadeOut(clip: SampleRegion, fadeSec: number): SampleRegion {
 export function applySourceDuration(
   clip: SampleRegion,
   sourceDurationSec: number,
+  loopLengthSec: number = LOOP_LENGTH_SEC,
 ): SampleRegion {
   if (clip.sourceDurationSec != null) {
     return withClampedFades({ ...clip, sourceDurationSec })
   }
+  // A source longer than the room left in the loop lands trimmed to fit.
+  const room = Math.max(MIN_CLIP_SEC, loopLengthSec - clip.startSec)
   return withClampedFades({
     ...clip,
     sourceDurationSec,
     offsetSec: 0,
-    durationSec: Math.max(MIN_CLIP_SEC, sourceDurationSec),
+    durationSec: Math.max(MIN_CLIP_SEC, Math.min(sourceDurationSec, room)),
   })
-}
-
-/** Linear fade gain at `secondsIntoClip`, so the drawn slope is the applied gain. */
-export function fadeGain(
-  secondsIntoClip: number,
-  durationSec: number,
-  fades: ClipFades,
-): number {
-  if (durationSec <= 0) return 0
-  if (secondsIntoClip <= 0) return fades.fadeInSec > 0 ? 0 : 1
-  if (secondsIntoClip >= durationSec) return fades.fadeOutSec > 0 ? 0 : 1
-  const rising = fades.fadeInSec > 0 ? secondsIntoClip / fades.fadeInSec : 1
-  const falling = fades.fadeOutSec > 0 ? (durationSec - secondsIntoClip) / fades.fadeOutSec : 1
-  return clamp(Math.min(rising, falling), 0, 1)
-}
-
-export function clipGainAt(clip: SampleRegion, secondsIntoClip: number): number {
-  return fadeGain(secondsIntoClip, clip.durationSec, clip)
 }
 
 /**

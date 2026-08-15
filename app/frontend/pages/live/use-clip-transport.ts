@@ -74,7 +74,11 @@ export function useClipTransport({
 
   // Where the transport was pinned to the audio clock. Null until it runs.
   const anchorRef = useRef<TransportAnchor | null>(null)
-  // Clip starts already handed to the player, keyed by clip and loop pass.
+  // Loop passes are numbered across anchors so a re-pin cannot reuse a number.
+  const nextIterationRef = useRef(0)
+  // Clip starts already handed to the player, keyed by clip, loop pass, and
+  // the timeline position they were scheduled at. Moving a clip changes the
+  // key, so the new position is scheduled even within the same loop pass.
   const scheduledRef = useRef(new Map<string, number>())
   const clipsRef = useRef(clips)
   const clipFadesRef = useRef(clipFades)
@@ -87,21 +91,28 @@ export function useClipTransport({
   transportRef.current = transport
   loopEnabledRef.current = loopEnabled
 
+  /**
+   * The anchor is created on demand rather than at transport change, so audio
+   * started after Play still picks the timeline up from where it is.
+   */
+  const anchorAt = useCallback((engine: AudioEngine): TransportAnchor => {
+    const existing = anchorRef.current
+    if (existing) return existing
+    const created: TransportAnchor = {
+      contextTime: engine.currentTime,
+      playheadSec: playheadRef.current,
+      iteration: nextIterationRef.current++,
+    }
+    anchorRef.current = created
+    return created
+  }, [])
+
   /** Drops every clip start still in the queue and re-pins the transport to now. */
   const resetSchedule = useCallback(() => {
     clipPlayerRef.current?.stopAll()
     scheduledRef.current.clear()
-    const engine = engineRef.current
-    if (!engine || transportRef.current !== 'playing') {
-      anchorRef.current = null
-      return
-    }
-    anchorRef.current = {
-      contextTime: engine.currentTime,
-      playheadSec: playheadRef.current,
-      iteration: (anchorRef.current?.iteration ?? 0) + 1,
-    }
-  }, [clipPlayerRef, engineRef])
+    anchorRef.current = null
+  }, [clipPlayerRef])
 
   // Drawn playhead. Before audio has started there is nothing to play, so
   // frame deltas are enough to keep the line moving.
@@ -117,15 +128,26 @@ export function useClipTransport({
       setPlayheadSec((previous) => (previous === quantized ? previous : quantized))
     }
 
+    // Running off the end with loop off pauses where it stopped, and drops the
+    // anchor so resuming picks up from there rather than from the old pin.
+    const pauseAtEnd = () => {
+      transportRef.current = 'paused'
+      setTransport('paused')
+      resetSchedule()
+    }
+
     const tick = (ts: number) => {
       if (transportRef.current !== 'playing') return
       const engine = engineRef.current
-      const anchor = anchorRef.current
-      if (engine && anchor) {
-        const position = positionFromAnchor(anchor, engine.currentTime, loopEnabledRef.current)
+      if (engine) {
+        const position = positionFromAnchor(
+          anchorAt(engine),
+          engine.currentTime,
+          loopEnabledRef.current,
+        )
         draw(position.playheadSec)
         if (position.finished) {
-          setTransport('paused')
+          pauseAtEnd()
           return
         }
       } else if (lastTs != null) {
@@ -133,7 +155,7 @@ export function useClipTransport({
         const unwrapped = playheadRef.current + deltaSec
         if (!loopEnabledRef.current && unwrapped >= LOOP_LENGTH_SEC) {
           draw(LOOP_LENGTH_SEC)
-          setTransport('paused')
+          pauseAtEnd()
           return
         }
         draw(
@@ -148,7 +170,7 @@ export function useClipTransport({
 
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [engineRef, transport])
+  }, [anchorAt, engineRef, resetSchedule, transport])
 
   // Hands clip starts to the player a fraction of a second before they are due.
   // Runs on a timer rather than a frame so a backgrounded tab keeps playing.
@@ -158,12 +180,11 @@ export function useClipTransport({
     const schedule = () => {
       const engine = engineRef.current
       const player = clipPlayerRef.current
-      const anchor = anchorRef.current
-      if (!engine || !player || !anchor) return
+      if (!engine || !player) return
 
       const now = engine.currentTime
       const loop = loopEnabledRef.current
-      const position = positionFromAnchor(anchor, now, loop)
+      const position = positionFromAnchor(anchorAt(engine), now, loop)
       if (position.finished) return
 
       const due = clipsInWindow({
@@ -175,11 +196,11 @@ export function useClipTransport({
       })
 
       for (const entry of due) {
-        const key = `${entry.clipId}:${entry.iteration}`
-        if (scheduledRef.current.has(key)) continue
         const clip = clipsRef.current.find((candidate) => candidate.id === entry.clipId)
         const loaded = clip ? engine.sample(clip.sampleId) : undefined
         if (!clip || !loaded) continue
+        const key = `${entry.clipId}:${entry.iteration}:${clip.startSec.toFixed(3)}`
+        if (scheduledRef.current.has(key)) continue
         const fades = clipFadesRef.current.get(clip.id) ?? clip
         player.play(
           key,
@@ -203,7 +224,7 @@ export function useClipTransport({
     schedule()
     const timer = window.setInterval(schedule, SCHEDULE_TICK_MS)
     return () => window.clearInterval(timer)
-  }, [clipPlayerRef, engineRef, transport])
+  }, [anchorAt, clipPlayerRef, engineRef, transport])
 
   // An edit re-derives the queue. Clips already sounding are left alone so
   // dragging one clip does not cut another off mid-note.

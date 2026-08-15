@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   MIN_CLIP_SEC,
   applySourceDuration,
-  clipGainAt,
   effectiveFades,
   moveClip,
   setFadeIn,
@@ -93,19 +92,6 @@ describe('fades', () => {
     expect(faded.fadeOutSec).toBeCloseTo(1, 5)
   })
 
-  it('reports the linear gain across the clip', () => {
-    const faded = setFadeOut(setFadeIn(clip({ durationSec: 6 }), 2), 2)
-    expect(clipGainAt(faded, 0)).toBe(0)
-    expect(clipGainAt(faded, 1)).toBeCloseTo(0.5, 5)
-    expect(clipGainAt(faded, 2)).toBeCloseTo(1, 5)
-    expect(clipGainAt(faded, 3)).toBeCloseTo(1, 5)
-    expect(clipGainAt(faded, 6)).toBe(0)
-  })
-
-  it('is fully open across a clip with no fades', () => {
-    expect(clipGainAt(clip(), 0)).toBe(1)
-    expect(clipGainAt(clip(), 6)).toBe(1)
-  })
 })
 
 describe('effectiveFades', () => {
@@ -146,6 +132,13 @@ describe('applySourceDuration', () => {
     expect(resolved.sourceDurationSec).toBe(7.5)
     expect(resolved.durationSec).toBeCloseTo(7.5, 5)
     expect(resolved.offsetSec).toBe(0)
+  })
+
+  it('trims a source longer than the room left in the loop', () => {
+    const late = clip({ sourceDurationSec: null, durationSec: 2, startSec: LOOP_LENGTH_SEC - 5 })
+    const resolved = applySourceDuration(late, 60)
+    expect(resolved.durationSec).toBeCloseTo(5, 5)
+    expect(resolved.startSec + resolved.durationSec).toBeCloseTo(LOOP_LENGTH_SEC, 5)
   })
 
   it('keeps an existing trim', () => {
