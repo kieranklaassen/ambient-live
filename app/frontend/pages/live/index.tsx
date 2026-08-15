@@ -1,10 +1,11 @@
 import { Head, router } from '@inertiajs/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 
 import { AudioEngine, type ParamId } from '@/audio/audio-engine'
 import DeviceStrip from './device-strip'
 import type { ShortcutAction } from './keymap'
 import { revokeLocalSampleUrls } from './local-folder'
+import PaneSplitter from './pane-splitter'
 import { DEFAULT_REVERB_SETTINGS, type ReverbSettings } from './reverb-controls'
 import SampleBrowser from './sample-browser'
 import { isAllowedSampleUrl, type SampleDragPayload } from './sample-drag'
@@ -19,6 +20,8 @@ import {
   type SampleRegion,
 } from './timeline-model'
 import { useLiveShortcuts } from './use-live-shortcuts'
+import { useWorkstationPanes } from './use-workstation-panes'
+import { paneVars } from './workstation-layout'
 
 interface LiveProps {
   samples: SampleItem[]
@@ -40,6 +43,17 @@ export default function Live({ samples }: LiveProps) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [localSamples, setLocalSamples] = useState<SampleItem[]>([])
   const [localFolderName, setLocalFolderName] = useState<string | null>(null)
+
+  const {
+    shellRef,
+    layout,
+    dragging,
+    startBrowserDrag,
+    moveBrowserDrag,
+    startDeviceDrag,
+    moveDeviceDrag,
+    endDrag,
+  } = useWorkstationPanes()
 
   const loadedSampleIdRef = useRef<number | null>(null)
   const sampleLoadMutexRef = useRef(Promise.resolve())
@@ -301,6 +315,11 @@ export default function Live({ samples }: LiveProps) {
       case 'browser.focusFilter':
         document.querySelector<HTMLInputElement>('[data-testid="sample-filter"]')?.focus()
         return
+      case 'keyboard.octaveDown':
+      case 'keyboard.octaveUp':
+        // Keyboard owns the octave offset; keymap still resolves these so the
+        // cheat sheet and preventDefault stay centralized.
+        return
       case 'overlay.shortcuts':
         setShortcutsOpen(true)
         return
@@ -343,18 +362,20 @@ export default function Live({ samples }: LiveProps) {
   }
 
   return (
-    <main className="workstation-shell sg-grid sg-compact">
+    <main
+      ref={shellRef}
+      className={`workstation-shell sg-grid sg-compact antialiased${dragging ? ' sg-guides-rhythm' : ''}`}
+      style={{ '--al-row-count': layout.rowCount } as CSSProperties}
+    >
       <Head title="Ambient Live" />
       <ShortcutOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-      <header className="workstation-region sg-col-1 sg-span-edge sg-row-1 sg-rows-2 half:sg-rows-1 full:sg-rows-1 flex items-center justify-between gap-3 border-b border-al-border bg-al-panel sg-p-1">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-sm font-medium uppercase tracking-[0.12em] text-al-text sg-leading-3">
-            Ambient Live
-          </h1>
-          <span className="hidden text-[10px] uppercase tracking-wider text-al-dim sm:inline">
-            Session
-          </span>
-        </div>
+      <header
+        className="workstation-region sg-col-1 sg-span-edge sg-row-1 sg-rows-1 flex items-center justify-between gap-3 border-b border-al-border bg-al-panel px-sg-2"
+        style={paneVars({ row: 1, rows: layout.headerRows })}
+      >
+        <h1 className="text-[11px] font-medium uppercase tracking-[0.16em] text-al-text sg-leading-2">
+          Ambient Live
+        </h1>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {!started ? (
             <div className="flex flex-col items-end gap-0.5">
@@ -372,20 +393,18 @@ export default function Live({ samples }: LiveProps) {
             </div>
           ) : (
             <span
-              className="rounded-[1px] border border-al-hairline bg-al-sunken px-2 py-0.5 text-[10px] uppercase tracking-wide text-al-accent"
+              className="size-1.5 rounded-[1px] bg-al-accent"
               data-testid="audio-started"
-            >
-              Audio live
-            </span>
+              title="Audio live"
+            />
           )}
           <div className="flex items-center gap-1.5" aria-label="Output level">
-            <span className="text-[10px] uppercase tracking-wide text-al-dim">Out</span>
-            <div className="h-1.5 w-28 overflow-hidden rounded-[1px] border border-al-border bg-al-sunken sm:w-36">
+            <div className="h-1.5 w-24 overflow-hidden rounded-[1px] border border-al-border bg-al-sunken sm:w-32">
               <div
                 data-testid="output-meter"
                 data-level={level.toFixed(3)}
                 aria-hidden="true"
-                className="h-full bg-al-accent transition-[width] duration-75"
+                className="h-full bg-al-accent"
                 style={{ width: `${Math.round(level * 100)}%` }}
               />
             </div>
@@ -393,7 +412,7 @@ export default function Live({ samples }: LiveProps) {
           <button
             type="button"
             onClick={() => router.delete('/session')}
-            className="rounded-[1px] px-2 py-1 text-[11px] uppercase tracking-wide text-al-muted hover:text-al-text"
+            className="rounded-[1px] px-2 py-1 text-[11px] uppercase tracking-wide text-al-dim hover:text-al-text"
           >
             Sign out
           </button>
@@ -401,7 +420,13 @@ export default function Live({ samples }: LiveProps) {
       </header>
 
       <SampleBrowser
-        className="sg-col-1 sg-span-4 half:sg-span-3 full:sg-span-3 sg-row-3 half:sg-row-2 full:sg-row-2 sg-rows-20 half:sg-rows-14 full:sg-rows-9"
+        className="relative sg-col-1 sg-span-1 sg-row-1 sg-rows-1"
+        style={paneVars({
+          col: 1,
+          span: layout.browserCols,
+          row: layout.contentStart,
+          rows: layout.contentRows,
+        })}
         samples={samples}
         localSamples={localSamples}
         localFolderName={localFolderName}
@@ -447,9 +472,23 @@ export default function Live({ samples }: LiveProps) {
           setLocalSamples(next)
           setLocalFolderName(folderName)
         }}
-      />
+      >
+        <PaneSplitter
+          orientation="vertical"
+          label="Resize browser"
+          testId="pane-splitter-browser"
+          onPointerDown={startBrowserDrag}
+          onPointerMove={moveBrowserDrag}
+          onPointerUp={endDrag}
+        />
+      </SampleBrowser>
       <Timeline
-        className="sg-col-5 half:sg-col-4 full:sg-col-4 sg-span-edge sg-row-3 half:sg-row-2 full:sg-row-2 sg-rows-20 half:sg-rows-14 full:sg-rows-9"
+        className="sg-col-1 sg-span-edge sg-row-1 sg-rows-1"
+        style={paneVars({
+          col: layout.timelineCol,
+          row: layout.contentStart,
+          rows: layout.contentRows,
+        })}
         regions={regions}
         playheadSec={playheadSec}
         transport={transport}
@@ -460,14 +499,27 @@ export default function Live({ samples }: LiveProps) {
         onDropSample={handleDropSample}
       />
       <DeviceStrip
-        className="sg-col-1 sg-span-edge sg-row-23 half:sg-row-16 full:sg-row-11 sg-rows-5 half:sg-rows-3 full:sg-rows-2"
+        className="relative sg-col-1 sg-span-edge sg-row-1 sg-rows-1"
+        style={paneVars({
+          row: layout.deviceStart,
+          rows: layout.deviceRows,
+        })}
         enabled={started}
         settings={settings}
         onChange={changeSetting}
         onNoteOn={noteOn}
         onMidiNoteOn={acquireNote}
         onNoteOff={releaseNote}
-      />
+      >
+        <PaneSplitter
+          orientation="horizontal"
+          label="Resize devices"
+          testId="pane-splitter-devices"
+          onPointerDown={startDeviceDrag}
+          onPointerMove={moveDeviceDrag}
+          onPointerUp={endDrag}
+        />
+      </DeviceStrip>
     </main>
   )
 }

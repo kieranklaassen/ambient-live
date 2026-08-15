@@ -44,6 +44,14 @@
 }
 
 @layer base {
+  html,
+  body,
+  #app {
+    margin: 0;
+    block-size: 100%;
+    overflow: hidden;
+  }
+
   .workstation-shell.sg-grid {
     font-family: var(--font-ui);
     color: var(--color-al-text);
@@ -57,9 +65,14 @@
     --sg-line-color: rgb(180 210 200 / 0.05);
     --sg-rhythm-guide-color: rgb(180 210 200 / 0.035);
     --sg-baseline-guide-color: rgb(180 210 200 / 0.02);
+    --al-row-count: 12;
     min-block-size: 100dvh;
+    block-size: 100dvh;
     overflow: hidden;
     isolation: isolate;
+    align-content: start;
+    /* Complete cells, then a remainder track — same idea as sg-span-edge. */
+    grid-template-rows: repeat(var(--al-row-count), var(--sg-cell)) minmax(0, 1fr);
   }
 
   /* Lightweight paper grain — fixed overlay, pointer-events none, no filter animation */
@@ -90,6 +103,11 @@
     min-inline-size: 0;
     min-block-size: 0;
     overflow: hidden;
+  }
+
+  /* Device strip starts on an integer row and eats the leftover sub-cell. */
+  .workstation-region[data-fill-block-end] {
+    grid-row-end: -1;
   }
 
   /* Matte panel surfaces — no glass, subtle wash only */

@@ -171,8 +171,8 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
 
   if (status.kind === 'unsupported') {
     return (
-      <p className="mt-3 text-xs text-al-dim" data-testid="midi-status">
-        MIDI not available in this browser.
+      <p className="text-xs text-al-dim" data-testid="midi-status">
+        No MIDI in this browser.
       </p>
     )
   }
@@ -214,7 +214,7 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
             ))}
           </select>
           {inputs.length === 0 && (
-            <span className="text-al-dim">No MIDI inputs found — plug in a controller.</span>
+            <span className="text-al-dim">None found.</span>
           )}
         </label>
       )}

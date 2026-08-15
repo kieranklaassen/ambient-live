@@ -1,3 +1,5 @@
+import type { CSSProperties, ReactNode } from 'react'
+
 import type { ParamId } from '@/audio/audio-engine'
 import { DevicePanel } from '@/components/daw'
 import Keyboard from './keyboard'
@@ -12,16 +14,21 @@ interface DeviceStripProps {
   onMidiNoteOn: (noteId: number, frequency: number, gain: number) => void
   onNoteOff: (noteId: number) => void
   className?: string
+  style?: CSSProperties
+  children?: ReactNode
 }
 
-export default function DeviceStrip({ enabled, settings, onChange, onNoteOn, onMidiNoteOn, onNoteOff, className = '' }: DeviceStripProps) {
+export default function DeviceStrip({ enabled, settings, onChange, onNoteOn, onMidiNoteOn, onNoteOff, className = '', style, children }: DeviceStripProps) {
   return (
-    <section className={`workstation-region border-t border-al-border bg-al-panel ${className}`} data-testid="device-strip" aria-label="Devices">
-      <div className="flex items-center justify-between border-b border-al-border px-sg-2 py-sg-1">
-        <h2 className="text-[10px] font-medium uppercase tracking-[0.14em] text-al-muted sg-leading-2">Devices</h2>
-        <p className="text-[10px] uppercase tracking-wide text-al-dim sg-leading-2">Built-in — reverb + play surfaces</p>
-      </div>
-      <div className="grid h-[calc(100%-24px)] min-h-0 gap-px overflow-auto bg-al-border lg:grid-cols-[minmax(18rem,21rem)_1fr_minmax(9rem,13rem)_minmax(9rem,12rem)]">
+    <section
+      className={`workstation-region border-t border-al-border bg-al-panel ${className}`}
+      style={style}
+      data-testid="device-strip"
+      data-fill-block-end=""
+      aria-label="Devices"
+    >
+      {children}
+      <div className="grid h-full min-h-0 gap-px overflow-auto bg-al-border lg:grid-cols-[minmax(18rem,21rem)_1fr_minmax(9rem,13rem)_minmax(9rem,12rem)]">
         <div className="min-w-0 bg-al-raised sg-p-1">
           <ReverbControls enabled={enabled} settings={settings} onChange={onChange} />
         </div>
