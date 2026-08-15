@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import { filesToLocalSamples, isAudioFileName, nextLocalSampleId } from './local-folder'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  directoryPickerAbortReason,
+  filesToLocalSamples,
+  isAudioFileName,
+  localFolderMode,
+  nextLocalSampleId,
+  pickLocalFolderSamples,
+} from './local-folder'
 
 describe('local-folder helpers', () => {
   it('recognizes common audio extensions', () => {
@@ -20,5 +27,39 @@ describe('local-folder helpers', () => {
     expect(samples[0]?.name).toBe('drone.wav')
     expect(samples[0]?.url.startsWith('blob:')).toBe(true)
     for (const sample of samples) URL.revokeObjectURL(sample.url)
+  })
+})
+
+describe('directory picker fallback', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('uses file-input when the File System Access API is absent', () => {
+    expect(localFolderMode()).toBe('file-input')
+  })
+
+  it('treats sub-250ms AbortError as a picker that never appeared', () => {
+    expect(directoryPickerAbortReason(0.66)).toBe('unavailable')
+    expect(directoryPickerAbortReason(249)).toBe('unavailable')
+    expect(directoryPickerAbortReason(250)).toBe('cancelled')
+  })
+
+  it('maps an instant AbortError from showDirectoryPicker to unavailable', async () => {
+    vi.stubGlobal('window', {
+      showDirectoryPicker: async () => {
+        throw new DOMException("Failed to execute 'showDirectoryPicker' on 'Window': The user aborted a request.", 'AbortError')
+      },
+    })
+    await expect(pickLocalFolderSamples()).resolves.toEqual({ status: 'unavailable' })
+  })
+
+  it('maps SecurityError from showDirectoryPicker to unavailable', async () => {
+    vi.stubGlobal('window', {
+      showDirectoryPicker: async () => {
+        throw new DOMException("Failed to execute 'showDirectoryPicker' on 'Window': Cross origin sub frames aren't allowed to show a file picker.", 'SecurityError')
+      },
+    })
+    await expect(pickLocalFolderSamples()).resolves.toEqual({ status: 'unavailable' })
   })
 })
