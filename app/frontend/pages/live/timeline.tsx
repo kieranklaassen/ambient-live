@@ -54,9 +54,11 @@ export default function Timeline({
   }
 
   function handleSeekClick(event: MouseEvent<HTMLDivElement>) {
+    // Consume first either way: a drag that ended on the clip still has to
+    // clear the flag, or it would swallow the next seek on open canvas.
+    const endedADrag = clipDrag.consumeDragClick()
     if ((event.target as HTMLElement).closest('[data-region]')) return
-    // A clip drag that ended over open canvas must not also move the playhead.
-    if (clipDrag.consumeDragClick()) return
+    if (endedADrag) return
     const bounds = event.currentTarget.getBoundingClientRect()
     onSeek(xToTime(event.clientX - bounds.left, bounds.width, LOOP_LENGTH_SEC))
   }

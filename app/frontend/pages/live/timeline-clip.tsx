@@ -44,8 +44,8 @@ export default function TimelineClip({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-      className={`absolute top-0 bottom-0 touch-none select-none overflow-hidden rounded-[1px] border bg-al-accent-soft ${
-        dragging ? 'border-al-accent bg-al-accent-soft' : 'border-al-accent'
+      className={`absolute top-0 bottom-0 touch-none select-none overflow-hidden rounded-[1px] border border-al-accent bg-al-accent-soft ${
+        dragging ? 'cursor-grabbing' : 'cursor-grab'
       }`}
       style={{ left: `${leftPercent}%`, width: `${widthPercent}%` }}
     >
@@ -54,6 +54,11 @@ export default function TimelineClip({
       <span className="pointer-events-none relative block truncate px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-al-text">
         {clip.name}
       </span>
+      {/* Affordances only — presses fall through to the clip's own hit test. */}
+      <span className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize" />
+      <span className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize" />
+      <FadeHandle side="left" atPercent={fadeInPercent} />
+      <FadeHandle side="right" atPercent={fadeOutPercent} />
     </div>
   )
 }
@@ -112,6 +117,19 @@ function ClipFadeShape({
         />
       )}
     </svg>
+  )
+}
+
+function FadeHandle({ side, atPercent }: { side: 'left' | 'right'; atPercent: number }) {
+  const position =
+    side === 'left'
+      ? { left: `${atPercent}%`, marginLeft: '-3px' }
+      : { right: `${atPercent}%`, marginRight: '-3px' }
+  return (
+    <span
+      className="absolute top-0 size-1.5 cursor-ew-resize border border-al-accent bg-al-chrome"
+      style={position}
+    />
   )
 }
 
