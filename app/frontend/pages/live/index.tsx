@@ -1,8 +1,10 @@
 import { Head, router } from '@inertiajs/react'
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
 import { AudioEngine, type LoadedSample, type ParamId } from '@/audio/audio-engine'
+import { ClipPlayer } from '@/audio/clip-player'
 import type { WaveformPeaks } from '@/audio/waveform'
+import { clipsInWindow } from './clip-schedule'
 import DeviceStrip from './device-strip'
 import type { ShortcutAction } from './keymap'
 import { revokeLocalSampleUrls } from './local-folder'
@@ -13,12 +15,11 @@ import { isAllowedSampleUrl, type SampleDragPayload } from './sample-drag'
 import type { SampleItem } from './sample-library'
 import ShortcutOverlay from './shortcut-overlay'
 import Timeline, { type TransportState } from './timeline'
-import { applySourceDuration } from './timeline-clips'
+import { applySourceDuration, effectiveFades } from './timeline-clips'
 import {
   LOOP_LENGTH_SEC,
   advancePlayhead,
   createSampleRegion,
-  risingEdgeRegions,
   type SampleRegion,
 } from './timeline-model'
 import { useLiveShortcuts } from './use-live-shortcuts'
@@ -27,6 +28,48 @@ import { paneVars } from './workstation-layout'
 
 interface LiveProps {
   samples: SampleItem[]
+}
+
+/** How far ahead of the audio clock clip starts are handed to the player. */
+const SCHEDULE_LOOKAHEAD_SEC = 0.2
+const SCHEDULE_TICK_MS = 40
+
+interface TransportAnchor {
+  /** Audio-clock time the transport was pinned at. */
+  contextTime: number
+  /** Playhead position at that moment. */
+  playheadSec: number
+  /** Loop pass the anchor started on. */
+  iteration: number
+}
+
+interface TransportPosition {
+  playheadSec: number
+  iteration: number
+  /** True when the loop is off and the playhead has run off the end. */
+  finished: boolean
+}
+
+/** Where the playhead is now, derived from the audio clock rather than accumulated frames. */
+function positionFromAnchor(
+  anchor: TransportAnchor,
+  contextTime: number,
+  loopEnabled: boolean,
+): TransportPosition {
+  const raw = anchor.playheadSec + (contextTime - anchor.contextTime)
+  if (!loopEnabled) {
+    return {
+      playheadSec: Math.min(raw, LOOP_LENGTH_SEC),
+      iteration: anchor.iteration,
+      finished: raw >= LOOP_LENGTH_SEC,
+    }
+  }
+  const passes = Math.floor(raw / LOOP_LENGTH_SEC)
+  return {
+    playheadSec: raw - passes * LOOP_LENGTH_SEC,
+    iteration: anchor.iteration + passes,
+    finished: false,
+  }
 }
 
 export default function Live({ samples }: LiveProps) {
@@ -60,16 +103,24 @@ export default function Live({ samples }: LiveProps) {
     endDrag,
   } = useWorkstationPanes()
 
+  const clipFades = useMemo(() => effectiveFades(regions), [regions])
+
   const sampleLoadMutexRef = useRef(Promise.resolve())
-  const regionTriggerSeqRef = useRef(0)
-  const latestTriggerSampleIdRef = useRef<number | null>(null)
+  const clipPlayerRef = useRef<ClipPlayer | null>(null)
+  // Where the transport was pinned to the audio clock, and which loop pass
+  // that anchor started on. Null while the transport is not running on audio.
+  const anchorRef = useRef<TransportAnchor | null>(null)
+  // Clip starts already handed to the player, keyed by clip and loop pass.
+  const scheduledRef = useRef(new Map<string, number>())
   const regionsRef = useRef(regions)
+  const clipFadesRef = useRef(clipFades)
   const playheadRef = useRef(playheadSec)
   const transportRef = useRef(transport)
   const loopEnabledRef = useRef(loopEnabled)
   const localSamplesRef = useRef(localSamples)
   // Keep rAF / cleanup readers current without an extra effect tick.
   regionsRef.current = regions
+  clipFadesRef.current = clipFades
   transportRef.current = transport
   loopEnabledRef.current = loopEnabled
   localSamplesRef.current = localSamples
@@ -85,6 +136,7 @@ export default function Live({ samples }: LiveProps) {
     try {
       const engine = await AudioEngine.start()
       engineRef.current = engine
+      clipPlayerRef.current = new ClipPlayer(engine)
       setStarted(true)
     } catch (error) {
       setStartError(error instanceof Error ? error.message : String(error))
@@ -109,11 +161,23 @@ export default function Live({ samples }: LiveProps) {
 
   useEffect(
     () => () => {
+      clipPlayerRef.current?.stopAll()
+      clipPlayerRef.current = null
       void engineRef.current?.close()
       engineRef.current = null
     },
     [],
   )
+
+  // Clips dropped before audio started have no decoded buffer. Load them once
+  // the engine exists so they can play and draw their waveform; clips dropped
+  // after that are loaded by the drop handler.
+  useEffect(() => {
+    if (!started) return
+    for (const region of regionsRef.current) {
+      void loadRegionSource(region)
+    }
+  }, [started])
 
   // Refcount overlapping keyboard + MIDI holds so one input releasing a
   // shared noteId does not cut a voice the other input still owns.
@@ -207,96 +271,164 @@ export default function Live({ samples }: LiveProps) {
     setPlayingSampleId(null)
   }
 
-  const triggerRegion = useCallback(
-    async (region: SampleRegion) => {
-      const engine = engineRef.current
-      if (!engine) return
-      const triggerSeq = ++regionTriggerSeqRef.current
-      latestTriggerSampleIdRef.current = region.sampleId
-      try {
-        const loaded = await ensureSampleLoaded(region.sampleId, region.url)
-        if (loaded) setRegionDuration(region.id, loaded.durationSec)
-        // Only the most recent trigger may start playback; a slow load must
-        // not fire late after a newer trigger or after the transport stopped.
-        if (triggerSeq !== regionTriggerSeqRef.current || transportRef.current !== 'playing') return
-        engine.playSample(region.sampleId)
-        setPlayingSampleId(region.sampleId)
-      } catch {
-        // Unknown/unreachable sample — skip without throwing (U3 edge).
-      }
-    },
-    [setRegionDuration],
-  )
+  /** Decodes a clip's sample and gives the clip its real length. */
+  async function loadRegionSource(region: SampleRegion) {
+    if (!engineRef.current) return
+    try {
+      const loaded = await ensureSampleLoaded(region.sampleId, region.url)
+      if (loaded) setRegionDuration(region.id, loaded.durationSec)
+    } catch {
+      // Unreachable sample — the clip keeps its placeholder width.
+    }
+  }
 
+  /** Drops every clip start still in the queue and re-pins the transport to now. */
+  const resetSchedule = useCallback(() => {
+    clipPlayerRef.current?.stopAll()
+    scheduledRef.current.clear()
+    const engine = engineRef.current
+    if (!engine || transportRef.current !== 'playing') {
+      anchorRef.current = null
+      return
+    }
+    anchorRef.current = {
+      contextTime: engine.currentTime,
+      playheadSec: playheadRef.current,
+      iteration: (anchorRef.current?.iteration ?? 0) + 1,
+    }
+  }, [])
+
+  // Drawn playhead. The audio clock drives it whenever the engine is running,
+  // so the line and the scheduled audio cannot drift apart; before audio has
+  // started there is nothing to play and frame deltas are enough.
   useEffect(() => {
     if (transport !== 'playing') return
     let frame = 0
     let lastTs: number | null = null
+
+    const draw = (next: number) => {
+      playheadRef.current = next
+      // Quantize to the 0.01s readout so steady frames skip the re-render.
+      const quantized = Math.round(next * 100) / 100
+      setPlayheadSec((previous) => (previous === quantized ? previous : quantized))
+    }
+
     const tick = (ts: number) => {
       if (transportRef.current !== 'playing') return
-      if (lastTs == null) {
-        lastTs = ts
-        frame = requestAnimationFrame(tick)
-        return
-      }
-      const deltaSec = Math.min((ts - lastTs) / 1000, 0.1)
-      lastTs = ts
-      const previous = playheadRef.current
-      let next: number
-      if (loopEnabledRef.current) {
-        next = advancePlayhead(previous, deltaSec, LOOP_LENGTH_SEC)
-      } else {
-        const unwrapped = previous + deltaSec
-        if (unwrapped >= LOOP_LENGTH_SEC) {
-          next = LOOP_LENGTH_SEC
-          playheadRef.current = next
-          setPlayheadSec(LOOP_LENGTH_SEC)
-          for (const region of risingEdgeRegions(
-            previous,
-            next,
-            regionsRef.current,
-            LOOP_LENGTH_SEC,
-          )) {
-            void triggerRegion(region)
-          }
+      const engine = engineRef.current
+      const anchor = anchorRef.current
+      if (engine && anchor) {
+        const position = positionFromAnchor(anchor, engine.currentTime, loopEnabledRef.current)
+        draw(position.playheadSec)
+        if (position.finished) {
           setTransport('paused')
           return
         }
-        next = unwrapped
+      } else if (lastTs != null) {
+        const deltaSec = Math.min((ts - lastTs) / 1000, 0.1)
+        const unwrapped = playheadRef.current + deltaSec
+        if (!loopEnabledRef.current && unwrapped >= LOOP_LENGTH_SEC) {
+          draw(LOOP_LENGTH_SEC)
+          setTransport('paused')
+          return
+        }
+        draw(
+          loopEnabledRef.current
+            ? advancePlayhead(playheadRef.current, deltaSec, LOOP_LENGTH_SEC)
+            : unwrapped,
+        )
       }
-      // Keep full-precision playhead in the ref for rising-edge detection;
-      // quantize React state to the 0.01s readout so steady frames bail out.
-      playheadRef.current = next
-      const quantized = Math.round(next * 100) / 100
-      setPlayheadSec((prev) => (prev === quantized ? prev : quantized))
-
-      for (const region of risingEdgeRegions(previous, next, regionsRef.current, LOOP_LENGTH_SEC)) {
-        void triggerRegion(region)
-      }
+      lastTs = ts
       frame = requestAnimationFrame(tick)
     }
+
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [transport, triggerRegion])
+  }, [transport])
+
+  // Hands clip starts to the player a fraction of a second before they are due.
+  // Runs on a timer rather than a frame so a backgrounded tab keeps playing.
+  useEffect(() => {
+    if (transport !== 'playing') return
+
+    const schedule = () => {
+      const engine = engineRef.current
+      const player = clipPlayerRef.current
+      const anchor = anchorRef.current
+      if (!engine || !player || !anchor) return
+
+      const now = engine.currentTime
+      const loop = loopEnabledRef.current
+      const position = positionFromAnchor(anchor, now, loop)
+      if (position.finished) return
+
+      const due = clipsInWindow({
+        clips: regionsRef.current,
+        playheadSec: position.playheadSec,
+        lookaheadSec: SCHEDULE_LOOKAHEAD_SEC,
+        iteration: position.iteration,
+        loopEnabled: loop,
+      })
+
+      for (const entry of due) {
+        const key = `${entry.clipId}:${entry.iteration}`
+        if (scheduledRef.current.has(key)) continue
+        const clip = regionsRef.current.find((region) => region.id === entry.clipId)
+        const loaded = clip ? engine.sample(clip.sampleId) : undefined
+        if (!clip || !loaded) continue
+        const fades = clipFadesRef.current.get(clip.id) ?? clip
+        player.play(
+          key,
+          {
+            buffer: loaded.audioBuffer,
+            offsetSec: clip.offsetSec,
+            durationSec: clip.durationSec,
+            fadeInSec: fades.fadeInSec,
+            fadeOutSec: fades.fadeOutSec,
+          },
+          now + entry.startsInSec,
+        )
+        scheduledRef.current.set(key, entry.iteration)
+      }
+
+      for (const [key, iteration] of scheduledRef.current) {
+        if (iteration < position.iteration) scheduledRef.current.delete(key)
+      }
+    }
+
+    schedule()
+    const timer = window.setInterval(schedule, SCHEDULE_TICK_MS)
+    return () => window.clearInterval(timer)
+  }, [transport])
+
+  // An edit re-derives the queue. Clips already sounding are left alone so
+  // dragging one clip does not cut another off mid-note.
+  useEffect(() => {
+    const player = clipPlayerRef.current
+    if (!player || transportRef.current !== 'playing') return
+    for (const key of player.stopPending()) {
+      scheduledRef.current.delete(key)
+    }
+  }, [regions, clipFades, loopEnabled])
 
   function handleTransportChange(next: TransportState) {
-    // Sync the ref before the re-render so in-flight triggerRegion loads see
-    // Stop/Pause immediately instead of one frame late.
+    // Sync the ref before the re-render so the scheduler sees Stop/Pause
+    // immediately instead of one tick late.
     transportRef.current = next
     if (next === 'stopped') {
       setTransport('stopped')
       setPlayheadSec(0)
       playheadRef.current = 0
-      return
+    } else {
+      setTransport(next)
     }
-    // Keep playhead where it is on play/pause so an in-region start does not
-    // auto-fire (KTD9 rising-edge uses the current playhead as previous).
-    setTransport(next)
+    resetSchedule()
   }
 
   function seekPlayhead(timeSec: number) {
     setPlayheadSec(timeSec)
     playheadRef.current = timeSec
+    resetSchedule()
   }
 
   function handleShortcut(action: ShortcutAction) {
@@ -307,12 +439,13 @@ export default function Live({ samples }: LiveProps) {
           handleTransportChange('stopped')
           return
         }
-        seekPlayhead(0)
-        setTransport('playing')
+        playheadRef.current = 0
+        setPlayheadSec(0)
+        handleTransportChange('playing')
         return
       case 'transport.continue':
         // Shift+Space: pause/resume without relocating the playhead.
-        setTransport(transportRef.current === 'playing' ? 'paused' : 'playing')
+        handleTransportChange(transportRef.current === 'playing' ? 'paused' : 'playing')
         return
       case 'transport.home':
         seekPlayhead(0)
@@ -357,15 +490,7 @@ export default function Live({ samples }: LiveProps) {
       startSec,
     })
     setRegions((previous) => [...previous, region])
-    if (!engineRef.current) return
-    void (async () => {
-      try {
-        const loaded = await ensureSampleLoaded(sample.sampleId, sample.url)
-        if (loaded) setRegionDuration(region.id, loaded.durationSec)
-      } catch {
-        // Keep placeholder duration if decode fails.
-      }
-    })()
+    void loadRegionSource(region)
   }
 
   return (
@@ -449,23 +574,15 @@ export default function Live({ samples }: LiveProps) {
               .map((sample) => sample.id),
           )
           if (removedIds.size > 0) {
-            // Invalidate the in-flight timeline trigger so a slow load for a
-            // removed sample cannot start playback after clear/replace. Only
-            // the latest trigger can play, so bump the sequence only when it
-            // targets a removed sample — otherwise a surviving (e.g. library)
-            // region's pending trigger would be cancelled too.
-            if (
-              latestTriggerSampleIdRef.current != null &&
-              removedIds.has(latestTriggerSampleIdRef.current)
-            ) {
-              regionTriggerSeqRef.current++
-            }
+            // Clips for a sample that just went away must not keep sounding,
+            // and the queue is re-derived from what survives.
             setRegions((previous) =>
               previous.filter((region) => !removedIds.has(region.sampleId)),
             )
             if (playingSampleId != null && removedIds.has(playingSampleId)) {
               stopSample()
             }
+            resetSchedule()
             for (const id of removedIds) {
               engineRef.current?.forgetSample(id)
             }
@@ -496,6 +613,7 @@ export default function Live({ samples }: LiveProps) {
           rows: layout.contentRows,
         })}
         regions={regions}
+        clipFades={clipFades}
         peaksBySampleId={peaksBySampleId}
         playheadSec={playheadSec}
         transport={transport}

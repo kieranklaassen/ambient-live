@@ -1,9 +1,9 @@
-import { useMemo, useRef, type CSSProperties, type DragEvent, type MouseEvent } from 'react'
+import { useRef, type CSSProperties, type DragEvent, type MouseEvent } from 'react'
 
 import type { WaveformPeaks } from '@/audio/waveform'
 import { readSampleDragData, type SampleDragPayload } from './sample-drag'
 import TimelineClip from './timeline-clip'
-import { effectiveFades } from './timeline-clips'
+import type { ClipFades } from './timeline-clips'
 import { LOOP_LENGTH_SEC, timeToX, xToTime, type SampleRegion } from './timeline-model'
 import { useClipDrag } from './use-clip-drag'
 
@@ -11,6 +11,8 @@ export type TransportState = 'stopped' | 'playing' | 'paused'
 
 interface TimelineProps {
   regions: SampleRegion[]
+  /** Fades after overlap crossfades, keyed by clip id. */
+  clipFades: ReadonlyMap<string, ClipFades>
   peaksBySampleId: ReadonlyMap<number, WaveformPeaks>
   playheadSec: number
   transport: TransportState
@@ -26,6 +28,7 @@ interface TimelineProps {
 
 export default function Timeline({
   regions,
+  clipFades,
   peaksBySampleId,
   playheadSec,
   transport,
@@ -41,7 +44,6 @@ export default function Timeline({
   const playheadPercent = timeToX(playheadSec, 100, LOOP_LENGTH_SEC)
   const laneRef = useRef<HTMLDivElement>(null)
   const clipDrag = useClipDrag({ laneRef, onClipChange })
-  const fades = useMemo(() => effectiveFades(regions), [regions])
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault()
@@ -141,7 +143,7 @@ export default function Timeline({
             <TimelineClip
               key={region.id}
               clip={region}
-              fades={fades.get(region.id) ?? region}
+              fades={clipFades.get(region.id) ?? region}
               peaks={peaksBySampleId.get(region.sampleId) ?? null}
               dragging={clipDrag.dragTarget !== null}
               onPointerDown={clipDrag.onPointerDown}

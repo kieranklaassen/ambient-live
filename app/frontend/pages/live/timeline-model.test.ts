@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   LOOP_LENGTH_SEC,
+  PLACEHOLDER_DURATION_SEC,
   advancePlayhead,
   createSampleRegion,
-  risingEdgeRegionIds,
   timeToX,
   xToTime,
 } from './timeline-model'
@@ -20,37 +20,27 @@ describe('xToTime / timeToX', () => {
   })
 })
 
-describe('risingEdgeRegionIds', () => {
-  const region = createSampleRegion({
-    id: 'r1',
-    sampleId: 1,
-    name: 'pad',
-    url: '/u',
-    startSec: 4,
-    durationSec: 2,
+describe('createSampleRegion', () => {
+  it('waits at the placeholder length until the source is decoded', () => {
+    const region = createSampleRegion({ sampleId: 1, name: 'pad', url: '/u', startSec: 4 })
+    expect(region.durationSec).toBe(PLACEHOLDER_DURATION_SEC)
+    expect(region.sourceDurationSec).toBeNull()
+    expect(region.offsetSec).toBe(0)
   })
 
-  it('fires once when the playhead crosses startSec', () => {
-    expect(risingEdgeRegionIds(3.9, 4.05, [region])).toEqual(['r1'])
-    expect(risingEdgeRegionIds(4.05, 4.2, [region])).toEqual([])
-  })
-
-  it('does not fire when playback starts already inside a region', () => {
-    expect(risingEdgeRegionIds(4.5, 4.6, [region])).toEqual([])
-  })
-
-  it('fires again after a later loop crosses startSec', () => {
-    const nearEnd = LOOP_LENGTH_SEC - 0.05
-    const afterWrap = 0.05
-    const atZero = createSampleRegion({
-      id: 'r0',
-      sampleId: 2,
-      name: 'hit',
+  it('takes the decoded length when it is already known', () => {
+    const region = createSampleRegion({
+      sampleId: 1,
+      name: 'pad',
       url: '/u',
-      startSec: 0,
-      durationSec: 1,
+      startSec: 4,
+      sourceDurationSec: 7.5,
     })
-    expect(risingEdgeRegionIds(nearEnd, afterWrap, [atZero])).toEqual(['r0'])
+    expect(region.durationSec).toBe(7.5)
+  })
+
+  it('never starts before the timeline origin', () => {
+    expect(createSampleRegion({ sampleId: 1, name: 'p', url: '/u', startSec: -3 }).startSec).toBe(0)
   })
 })
 
