@@ -1,6 +1,14 @@
 export const LOOP_LENGTH_SEC = 32
 export const PLACEHOLDER_DURATION_SEC = 2
 
+/**
+ * A slice of a decoded sample placed on the timeline — an Ableton-style clip.
+ *
+ * `startSec` is where it sits on the timeline, `offsetSec` is where playback
+ * enters the source, and `durationSec` is the audible length (not the source
+ * length). `sourceDurationSec` stays null until the sample has been decoded,
+ * which is what tells the edit helpers whether the source bounds are known.
+ */
 export interface SampleRegion {
   id: string
   sampleId: number
@@ -8,6 +16,10 @@ export interface SampleRegion {
   url: string
   startSec: number
   durationSec: number
+  offsetSec: number
+  sourceDurationSec: number | null
+  fadeInSec: number
+  fadeOutSec: number
 }
 
 export function clampTime(sec: number, loopLengthSec: number): number {
@@ -40,15 +52,21 @@ export function createSampleRegion(input: {
   url: string
   startSec: number
   durationSec?: number
+  sourceDurationSec?: number
   id?: string
 }): SampleRegion {
+  const sourceDurationSec = input.sourceDurationSec ?? null
   return {
     id: input.id ?? createRegionId(),
     sampleId: input.sampleId,
     name: input.name,
     url: input.url,
     startSec: Math.max(0, input.startSec),
-    durationSec: input.durationSec ?? PLACEHOLDER_DURATION_SEC,
+    durationSec: input.durationSec ?? sourceDurationSec ?? PLACEHOLDER_DURATION_SEC,
+    offsetSec: 0,
+    sourceDurationSec,
+    fadeInSec: 0,
+    fadeOutSec: 0,
   }
 }
 

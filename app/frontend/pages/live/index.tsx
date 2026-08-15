@@ -1,7 +1,7 @@
 import { Head, router } from '@inertiajs/react'
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 
-import { AudioEngine, type ParamId } from '@/audio/audio-engine'
+import { AudioEngine, type LoadedSample, type ParamId } from '@/audio/audio-engine'
 import DeviceStrip from './device-strip'
 import type { ShortcutAction } from './keymap'
 import { revokeLocalSampleUrls } from './local-folder'
@@ -12,6 +12,7 @@ import { isAllowedSampleUrl, type SampleDragPayload } from './sample-drag'
 import type { SampleItem } from './sample-library'
 import ShortcutOverlay from './shortcut-overlay'
 import Timeline, { type TransportState } from './timeline'
+import { applySourceDuration } from './timeline-clips'
 import {
   LOOP_LENGTH_SEC,
   advancePlayhead,
@@ -55,9 +56,7 @@ export default function Live({ samples }: LiveProps) {
     endDrag,
   } = useWorkstationPanes()
 
-  const loadedSampleIdRef = useRef<number | null>(null)
   const sampleLoadMutexRef = useRef(Promise.resolve())
-  const sampleDurationsRef = useRef(new Map<number, number>())
   const regionTriggerSeqRef = useRef(0)
   const latestTriggerSampleIdRef = useRef<number | null>(null)
   const regionsRef = useRef(regions)
@@ -141,17 +140,23 @@ export default function Live({ samples }: LiveProps) {
     engineRef.current?.setParam(param, value)
   }
 
-  const setRegionDuration = useCallback((regionId: string, durationSec: number) => {
+  const setRegionDuration = useCallback((regionId: string, sourceDurationSec: number) => {
     setRegions((previous) =>
-      previous.map((item) => (item.id === regionId ? { ...item, durationSec } : item)),
+      previous.map((item) =>
+        item.id === regionId ? applySourceDuration(item, sourceDurationSec) : item,
+      ),
     )
   }, [])
 
-  async function ensureSampleLoaded(sampleId: number, url: string): Promise<number | null> {
+  async function ensureSampleLoaded(sampleId: number, url: string): Promise<LoadedSample | null> {
     const engine = engineRef.current
     if (!engine) return null
     if (!isAllowedSampleUrl(url)) return null
 
+    const cached = engine.sample(sampleId)
+    if (cached) return cached
+
+    // Serialize fetch+decode so two drops of the same sample decode once.
     const previous = sampleLoadMutexRef.current
     let releaseMutex = () => {}
     sampleLoadMutexRef.current = new Promise<void>((resolve) => {
@@ -160,20 +165,13 @@ export default function Live({ samples }: LiveProps) {
     await previous
 
     try {
-      if (loadedSampleIdRef.current === sampleId) {
-        // Cached hit: still report the decoded duration so regions dropped
-        // after an audition or earlier drop get their real width.
-        return sampleDurationsRef.current.get(sampleId) ?? null
-      }
+      const already = engine.sample(sampleId)
+      if (already) return already
       const response = await fetch(url)
       if (!response.ok) {
         throw new Error(`Sample fetch failed (${response.status})`)
       }
-      const encoded = await response.arrayBuffer()
-      const { durationSec } = await engine.decodeAndLoadSample(encoded)
-      loadedSampleIdRef.current = sampleId
-      sampleDurationsRef.current.set(sampleId, durationSec)
-      return durationSec
+      return await engine.loadSample(sampleId, await response.arrayBuffer())
     } finally {
       releaseMutex()
     }
@@ -185,7 +183,7 @@ export default function Live({ samples }: LiveProps) {
     setLoadingSampleId(sample.id)
     try {
       await ensureSampleLoaded(sample.id, sample.url)
-      engine.playSample()
+      engine.playSample(sample.id)
       setPlayingSampleId(sample.id)
     } catch {
       setPlayingSampleId(null)
@@ -206,12 +204,12 @@ export default function Live({ samples }: LiveProps) {
       const triggerSeq = ++regionTriggerSeqRef.current
       latestTriggerSampleIdRef.current = region.sampleId
       try {
-        const durationSec = await ensureSampleLoaded(region.sampleId, region.url)
-        if (durationSec != null) setRegionDuration(region.id, durationSec)
+        const loaded = await ensureSampleLoaded(region.sampleId, region.url)
+        if (loaded) setRegionDuration(region.id, loaded.durationSec)
         // Only the most recent trigger may start playback; a slow load must
         // not fire late after a newer trigger or after the transport stopped.
         if (triggerSeq !== regionTriggerSeqRef.current || transportRef.current !== 'playing') return
-        engine.playSample()
+        engine.playSample(region.sampleId)
         setPlayingSampleId(region.sampleId)
       } catch {
         // Unknown/unreachable sample — skip without throwing (U3 edge).
@@ -352,9 +350,8 @@ export default function Live({ samples }: LiveProps) {
     if (!engineRef.current) return
     void (async () => {
       try {
-        const durationSec = await ensureSampleLoaded(sample.sampleId, sample.url)
-        if (durationSec == null) return
-        setRegionDuration(region.id, durationSec)
+        const loaded = await ensureSampleLoaded(sample.sampleId, sample.url)
+        if (loaded) setRegionDuration(region.id, loaded.durationSec)
       } catch {
         // Keep placeholder duration if decode fails.
       }
@@ -459,14 +456,8 @@ export default function Live({ samples }: LiveProps) {
             if (playingSampleId != null && removedIds.has(playingSampleId)) {
               stopSample()
             }
-            if (
-              loadedSampleIdRef.current != null &&
-              removedIds.has(loadedSampleIdRef.current)
-            ) {
-              loadedSampleIdRef.current = null
-            }
             for (const id of removedIds) {
-              sampleDurationsRef.current.delete(id)
+              engineRef.current?.forgetSample(id)
             }
           }
           setLocalSamples(next)
