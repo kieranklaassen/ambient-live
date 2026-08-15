@@ -1,24 +1,25 @@
 import { Head, router } from '@inertiajs/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
-import { AudioEngine, type ParamId } from '@/audio/audio-engine'
+import { AudioEngine, type LoadedSample, type ParamId } from '@/audio/audio-engine'
+import { ClipPlayer } from '@/audio/clip-player'
+import type { WaveformPeaks } from '@/audio/waveform'
 import DeviceStrip from './device-strip'
 import type { ShortcutAction } from './keymap'
 import { revokeLocalSampleUrls } from './local-folder'
+import PaneSplitter from './pane-splitter'
 import { DEFAULT_REVERB_SETTINGS, type ReverbSettings } from './reverb-controls'
 import SampleBrowser from './sample-browser'
 import { isAllowedSampleUrl, type SampleDragPayload } from './sample-drag'
 import type { SampleItem } from './sample-library'
 import ShortcutOverlay from './shortcut-overlay'
-import Timeline, { type TransportState } from './timeline'
-import {
-  LOOP_LENGTH_SEC,
-  advancePlayhead,
-  createSampleRegion,
-  risingEdgeRegions,
-  type SampleRegion,
-} from './timeline-model'
+import Timeline from './timeline'
+import { applySourceDuration, effectiveFades } from './timeline-clips'
+import { createSampleRegion, type SampleRegion } from './timeline-model'
+import { useClipTransport } from './use-clip-transport'
 import { useLiveShortcuts } from './use-live-shortcuts'
+import { useWorkstationPanes } from './use-workstation-panes'
+import { paneVars } from './workstation-layout'
 
 interface LiveProps {
   samples: SampleItem[]
@@ -34,28 +35,36 @@ export default function Live({ samples }: LiveProps) {
   const [playingSampleId, setPlayingSampleId] = useState<number | null>(null)
   const [loadingSampleId, setLoadingSampleId] = useState<number | null>(null)
   const [regions, setRegions] = useState<SampleRegion[]>([])
-  const [playheadSec, setPlayheadSec] = useState(0)
-  const [transport, setTransport] = useState<TransportState>('stopped')
   const [loopEnabled, setLoopEnabled] = useState(true)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [localSamples, setLocalSamples] = useState<SampleItem[]>([])
   const [localFolderName, setLocalFolderName] = useState<string | null>(null)
+  const [peaksBySampleId, setPeaksBySampleId] = useState<ReadonlyMap<number, WaveformPeaks>>(
+    new Map(),
+  )
 
-  const loadedSampleIdRef = useRef<number | null>(null)
+  const {
+    shellRef,
+    layout,
+    dragging,
+    startBrowserDrag,
+    moveBrowserDrag,
+    startDeviceDrag,
+    moveDeviceDrag,
+    endDrag,
+  } = useWorkstationPanes()
+
+  const clipFades = useMemo(() => effectiveFades(regions), [regions])
+
   const sampleLoadMutexRef = useRef(Promise.resolve())
-  const sampleDurationsRef = useRef(new Map<number, number>())
-  const regionTriggerSeqRef = useRef(0)
-  const latestTriggerSampleIdRef = useRef<number | null>(null)
+  const clipPlayerRef = useRef<ClipPlayer | null>(null)
   const regionsRef = useRef(regions)
-  const playheadRef = useRef(playheadSec)
-  const transportRef = useRef(transport)
-  const loopEnabledRef = useRef(loopEnabled)
   const localSamplesRef = useRef(localSamples)
-  // Keep rAF / cleanup readers current without an extra effect tick.
   regionsRef.current = regions
-  transportRef.current = transport
-  loopEnabledRef.current = loopEnabled
   localSamplesRef.current = localSamples
+
+  const { transport, transportRef, playheadSec, changeTransport, seek, resetSchedule } =
+    useClipTransport({ engineRef, clipPlayerRef, clips: regions, clipFades, loopEnabled })
 
   useEffect(() => () => {
     revokeLocalSampleUrls(localSamplesRef.current)
@@ -68,6 +77,7 @@ export default function Live({ samples }: LiveProps) {
     try {
       const engine = await AudioEngine.start()
       engineRef.current = engine
+      clipPlayerRef.current = new ClipPlayer(engine)
       setStarted(true)
     } catch (error) {
       setStartError(error instanceof Error ? error.message : String(error))
@@ -92,11 +102,23 @@ export default function Live({ samples }: LiveProps) {
 
   useEffect(
     () => () => {
+      clipPlayerRef.current?.stopAll()
+      clipPlayerRef.current = null
       void engineRef.current?.close()
       engineRef.current = null
     },
     [],
   )
+
+  // Clips dropped before audio started have no decoded buffer. Load them once
+  // the engine exists so they can play and draw their waveform; clips dropped
+  // after that are loaded by the drop handler.
+  useEffect(() => {
+    if (!started) return
+    for (const region of regionsRef.current) {
+      void loadRegionSource(region)
+    }
+  }, [started])
 
   // Refcount overlapping keyboard + MIDI holds so one input releasing a
   // shared noteId does not cut a voice the other input still owns.
@@ -127,17 +149,27 @@ export default function Live({ samples }: LiveProps) {
     engineRef.current?.setParam(param, value)
   }
 
-  const setRegionDuration = useCallback((regionId: string, durationSec: number) => {
+  const setRegionDuration = useCallback((regionId: string, sourceDurationSec: number) => {
     setRegions((previous) =>
-      previous.map((item) => (item.id === regionId ? { ...item, durationSec } : item)),
+      previous.map((item) =>
+        item.id === regionId ? applySourceDuration(item, sourceDurationSec) : item,
+      ),
     )
   }, [])
 
-  async function ensureSampleLoaded(sampleId: number, url: string): Promise<number | null> {
+  const changeClip = useCallback((clip: SampleRegion) => {
+    setRegions((previous) => previous.map((item) => (item.id === clip.id ? clip : item)))
+  }, [])
+
+  async function ensureSampleLoaded(sampleId: number, url: string): Promise<LoadedSample | null> {
     const engine = engineRef.current
     if (!engine) return null
     if (!isAllowedSampleUrl(url)) return null
 
+    const cached = engine.sample(sampleId)
+    if (cached) return cached
+
+    // Serialize fetch+decode so two drops of the same sample decode once.
     const previous = sampleLoadMutexRef.current
     let releaseMutex = () => {}
     sampleLoadMutexRef.current = new Promise<void>((resolve) => {
@@ -146,20 +178,15 @@ export default function Live({ samples }: LiveProps) {
     await previous
 
     try {
-      if (loadedSampleIdRef.current === sampleId) {
-        // Cached hit: still report the decoded duration so regions dropped
-        // after an audition or earlier drop get their real width.
-        return sampleDurationsRef.current.get(sampleId) ?? null
-      }
+      const already = engine.sample(sampleId)
+      if (already) return already
       const response = await fetch(url)
       if (!response.ok) {
         throw new Error(`Sample fetch failed (${response.status})`)
       }
-      const encoded = await response.arrayBuffer()
-      const { durationSec } = await engine.decodeAndLoadSample(encoded)
-      loadedSampleIdRef.current = sampleId
-      sampleDurationsRef.current.set(sampleId, durationSec)
-      return durationSec
+      const loaded = await engine.loadSample(sampleId, await response.arrayBuffer())
+      setPeaksBySampleId((previous) => new Map(previous).set(sampleId, loaded.peaks))
+      return loaded
     } finally {
       releaseMutex()
     }
@@ -171,7 +198,7 @@ export default function Live({ samples }: LiveProps) {
     setLoadingSampleId(sample.id)
     try {
       await ensureSampleLoaded(sample.id, sample.url)
-      engine.playSample()
+      engine.playSample(sample.id)
       setPlayingSampleId(sample.id)
     } catch {
       setPlayingSampleId(null)
@@ -185,96 +212,15 @@ export default function Live({ samples }: LiveProps) {
     setPlayingSampleId(null)
   }
 
-  const triggerRegion = useCallback(
-    async (region: SampleRegion) => {
-      const engine = engineRef.current
-      if (!engine) return
-      const triggerSeq = ++regionTriggerSeqRef.current
-      latestTriggerSampleIdRef.current = region.sampleId
-      try {
-        const durationSec = await ensureSampleLoaded(region.sampleId, region.url)
-        if (durationSec != null) setRegionDuration(region.id, durationSec)
-        // Only the most recent trigger may start playback; a slow load must
-        // not fire late after a newer trigger or after the transport stopped.
-        if (triggerSeq !== regionTriggerSeqRef.current || transportRef.current !== 'playing') return
-        engine.playSample()
-        setPlayingSampleId(region.sampleId)
-      } catch {
-        // Unknown/unreachable sample — skip without throwing (U3 edge).
-      }
-    },
-    [setRegionDuration],
-  )
-
-  useEffect(() => {
-    if (transport !== 'playing') return
-    let frame = 0
-    let lastTs: number | null = null
-    const tick = (ts: number) => {
-      if (transportRef.current !== 'playing') return
-      if (lastTs == null) {
-        lastTs = ts
-        frame = requestAnimationFrame(tick)
-        return
-      }
-      const deltaSec = Math.min((ts - lastTs) / 1000, 0.1)
-      lastTs = ts
-      const previous = playheadRef.current
-      let next: number
-      if (loopEnabledRef.current) {
-        next = advancePlayhead(previous, deltaSec, LOOP_LENGTH_SEC)
-      } else {
-        const unwrapped = previous + deltaSec
-        if (unwrapped >= LOOP_LENGTH_SEC) {
-          next = LOOP_LENGTH_SEC
-          playheadRef.current = next
-          setPlayheadSec(LOOP_LENGTH_SEC)
-          for (const region of risingEdgeRegions(
-            previous,
-            next,
-            regionsRef.current,
-            LOOP_LENGTH_SEC,
-          )) {
-            void triggerRegion(region)
-          }
-          setTransport('paused')
-          return
-        }
-        next = unwrapped
-      }
-      // Keep full-precision playhead in the ref for rising-edge detection;
-      // quantize React state to the 0.01s readout so steady frames bail out.
-      playheadRef.current = next
-      const quantized = Math.round(next * 100) / 100
-      setPlayheadSec((prev) => (prev === quantized ? prev : quantized))
-
-      for (const region of risingEdgeRegions(previous, next, regionsRef.current, LOOP_LENGTH_SEC)) {
-        void triggerRegion(region)
-      }
-      frame = requestAnimationFrame(tick)
+  /** Decodes a clip's sample and gives the clip its real length. */
+  async function loadRegionSource(region: SampleRegion) {
+    if (!engineRef.current) return
+    try {
+      const loaded = await ensureSampleLoaded(region.sampleId, region.url)
+      if (loaded) setRegionDuration(region.id, loaded.durationSec)
+    } catch {
+      // Unreachable sample — the clip keeps its placeholder width.
     }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
-  }, [transport, triggerRegion])
-
-  function handleTransportChange(next: TransportState) {
-    // Sync the ref before the re-render so in-flight triggerRegion loads see
-    // Stop/Pause immediately instead of one frame late.
-    transportRef.current = next
-    if (next === 'stopped') {
-      setTransport('stopped')
-      setPlayheadSec(0)
-      playheadRef.current = 0
-      return
-    }
-    // Keep playhead where it is on play/pause so an in-region start does not
-    // auto-fire (KTD9 rising-edge uses the current playhead as previous).
-    setTransport(next)
-  }
-
-  function seekPlayhead(timeSec: number) {
-    setPlayheadSec(timeSec)
-    playheadRef.current = timeSec
   }
 
   function handleShortcut(action: ShortcutAction) {
@@ -282,24 +228,29 @@ export default function Live({ samples }: LiveProps) {
       case 'transport.spaceStop':
         // Ableton Space: stop returns to start; play always starts from 0.
         if (transportRef.current === 'playing') {
-          handleTransportChange('stopped')
+          changeTransport('stopped')
           return
         }
-        seekPlayhead(0)
-        setTransport('playing')
+        seek(0)
+        changeTransport('playing')
         return
       case 'transport.continue':
         // Shift+Space: pause/resume without relocating the playhead.
-        setTransport(transportRef.current === 'playing' ? 'paused' : 'playing')
+        changeTransport(transportRef.current === 'playing' ? 'paused' : 'playing')
         return
       case 'transport.home':
-        seekPlayhead(0)
+        seek(0)
         return
       case 'loop.toggle':
         setLoopEnabled((previous) => !previous)
         return
       case 'browser.focusFilter':
         document.querySelector<HTMLInputElement>('[data-testid="sample-filter"]')?.focus()
+        return
+      case 'keyboard.octaveDown':
+      case 'keyboard.octaveUp':
+        // Keyboard owns the octave offset; keymap still resolves these so the
+        // cheat sheet and preventDefault stay centralized.
         return
       case 'overlay.shortcuts':
         setShortcutsOpen(true)
@@ -330,31 +281,24 @@ export default function Live({ samples }: LiveProps) {
       startSec,
     })
     setRegions((previous) => [...previous, region])
-    if (!engineRef.current) return
-    void (async () => {
-      try {
-        const durationSec = await ensureSampleLoaded(sample.sampleId, sample.url)
-        if (durationSec == null) return
-        setRegionDuration(region.id, durationSec)
-      } catch {
-        // Keep placeholder duration if decode fails.
-      }
-    })()
+    void loadRegionSource(region)
   }
 
   return (
-    <main className="workstation-shell sg-grid sg-compact">
+    <main
+      ref={shellRef}
+      className={`workstation-shell sg-grid sg-compact antialiased${dragging ? ' sg-guides-rhythm' : ''}`}
+      style={{ '--al-row-count': layout.rowCount } as CSSProperties}
+    >
       <Head title="Ambient Live" />
       <ShortcutOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-      <header className="workstation-region sg-col-1 sg-span-edge sg-row-1 sg-rows-2 half:sg-rows-1 full:sg-rows-1 flex items-center justify-between gap-3 border-b border-al-border bg-al-panel sg-p-1">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-sm font-medium uppercase tracking-[0.12em] text-al-text sg-leading-3">
-            Ambient Live
-          </h1>
-          <span className="hidden text-[10px] uppercase tracking-wider text-al-dim sm:inline">
-            Session
-          </span>
-        </div>
+      <header
+        className="workstation-region sg-col-1 sg-span-edge sg-row-1 sg-rows-1 flex items-center justify-between gap-3 border-b border-al-border bg-al-panel px-sg-2"
+        style={paneVars({ row: 1, rows: layout.headerRows })}
+      >
+        <h1 className="text-[11px] font-medium uppercase tracking-[0.16em] text-al-text sg-leading-2">
+          Ambient Live
+        </h1>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {!started ? (
             <div className="flex flex-col items-end gap-0.5">
@@ -372,20 +316,18 @@ export default function Live({ samples }: LiveProps) {
             </div>
           ) : (
             <span
-              className="rounded-[1px] border border-al-hairline bg-al-sunken px-2 py-0.5 text-[10px] uppercase tracking-wide text-al-accent"
+              className="size-1.5 rounded-[1px] bg-al-accent"
               data-testid="audio-started"
-            >
-              Audio live
-            </span>
+              title="Audio live"
+            />
           )}
           <div className="flex items-center gap-1.5" aria-label="Output level">
-            <span className="text-[10px] uppercase tracking-wide text-al-dim">Out</span>
-            <div className="h-1.5 w-28 overflow-hidden rounded-[1px] border border-al-border bg-al-sunken sm:w-36">
+            <div className="h-1.5 w-24 overflow-hidden rounded-[1px] border border-al-border bg-al-sunken sm:w-32">
               <div
                 data-testid="output-meter"
                 data-level={level.toFixed(3)}
                 aria-hidden="true"
-                className="h-full bg-al-accent transition-[width] duration-75"
+                className="h-full bg-al-accent"
                 style={{ width: `${Math.round(level * 100)}%` }}
               />
             </div>
@@ -393,7 +335,7 @@ export default function Live({ samples }: LiveProps) {
           <button
             type="button"
             onClick={() => router.delete('/session')}
-            className="rounded-[1px] px-2 py-1 text-[11px] uppercase tracking-wide text-al-muted hover:text-al-text"
+            className="rounded-[1px] px-2 py-1 text-[11px] uppercase tracking-wide text-al-dim hover:text-al-text"
           >
             Sign out
           </button>
@@ -401,7 +343,13 @@ export default function Live({ samples }: LiveProps) {
       </header>
 
       <SampleBrowser
-        className="sg-col-1 sg-span-4 half:sg-span-3 full:sg-span-3 sg-row-3 half:sg-row-2 full:sg-row-2 sg-rows-20 half:sg-rows-14 full:sg-rows-9"
+        className="relative sg-col-1 sg-span-1 sg-row-1 sg-rows-1"
+        style={paneVars({
+          col: 1,
+          span: layout.browserCols,
+          row: layout.contentStart,
+          rows: layout.contentRows,
+        })}
         samples={samples}
         localSamples={localSamples}
         localFolderName={localFolderName}
@@ -417,57 +365,78 @@ export default function Live({ samples }: LiveProps) {
               .map((sample) => sample.id),
           )
           if (removedIds.size > 0) {
-            // Invalidate the in-flight timeline trigger so a slow load for a
-            // removed sample cannot start playback after clear/replace. Only
-            // the latest trigger can play, so bump the sequence only when it
-            // targets a removed sample — otherwise a surviving (e.g. library)
-            // region's pending trigger would be cancelled too.
-            if (
-              latestTriggerSampleIdRef.current != null &&
-              removedIds.has(latestTriggerSampleIdRef.current)
-            ) {
-              regionTriggerSeqRef.current++
-            }
+            // Clips for a sample that just went away must not keep sounding,
+            // and the queue is re-derived from what survives.
             setRegions((previous) =>
               previous.filter((region) => !removedIds.has(region.sampleId)),
             )
             if (playingSampleId != null && removedIds.has(playingSampleId)) {
               stopSample()
             }
-            if (
-              loadedSampleIdRef.current != null &&
-              removedIds.has(loadedSampleIdRef.current)
-            ) {
-              loadedSampleIdRef.current = null
-            }
+            resetSchedule()
             for (const id of removedIds) {
-              sampleDurationsRef.current.delete(id)
+              engineRef.current?.forgetSample(id)
             }
+            setPeaksBySampleId((previous) => {
+              const next = new Map(previous)
+              for (const id of removedIds) next.delete(id)
+              return next
+            })
           }
           setLocalSamples(next)
           setLocalFolderName(folderName)
         }}
-      />
+      >
+        <PaneSplitter
+          orientation="vertical"
+          label="Resize browser"
+          testId="pane-splitter-browser"
+          onPointerDown={startBrowserDrag}
+          onPointerMove={moveBrowserDrag}
+          onPointerUp={endDrag}
+        />
+      </SampleBrowser>
       <Timeline
-        className="sg-col-5 half:sg-col-4 full:sg-col-4 sg-span-edge sg-row-3 half:sg-row-2 full:sg-row-2 sg-rows-20 half:sg-rows-14 full:sg-rows-9"
+        className="sg-col-1 sg-span-edge sg-row-1 sg-rows-1"
+        style={paneVars({
+          col: layout.timelineCol,
+          row: layout.contentStart,
+          rows: layout.contentRows,
+        })}
         regions={regions}
+        clipFades={clipFades}
+        peaksBySampleId={peaksBySampleId}
         playheadSec={playheadSec}
         transport={transport}
         loopEnabled={loopEnabled}
         onLoopEnabledChange={setLoopEnabled}
-        onTransportChange={handleTransportChange}
-        onSeek={seekPlayhead}
+        onTransportChange={changeTransport}
+        onSeek={seek}
         onDropSample={handleDropSample}
+        onClipChange={changeClip}
       />
       <DeviceStrip
-        className="sg-col-1 sg-span-edge sg-row-23 half:sg-row-16 full:sg-row-11 sg-rows-5 half:sg-rows-3 full:sg-rows-2"
+        className="relative sg-col-1 sg-span-edge sg-row-1 sg-rows-1"
+        style={paneVars({
+          row: layout.deviceStart,
+          rows: layout.deviceRows,
+        })}
         enabled={started}
         settings={settings}
         onChange={changeSetting}
         onNoteOn={noteOn}
         onMidiNoteOn={acquireNote}
         onNoteOff={releaseNote}
-      />
+      >
+        <PaneSplitter
+          orientation="horizontal"
+          label="Resize devices"
+          testId="pane-splitter-devices"
+          onPointerDown={startDeviceDrag}
+          onPointerMove={moveDeviceDrag}
+          onPointerUp={endDrag}
+        />
+      </DeviceStrip>
     </main>
   )
 }

@@ -1,25 +1,32 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { midiToFrequency } from '@/audio/midi'
 
-import { isTypingTarget } from './keymap'
+import {
+  applyKeyboardOctave,
+  isTypingTarget,
+  keyboardNoteLabel,
+  resolveShortcutAction,
+  shiftKeyboardOctave,
+} from './keymap'
 
-// One octave plus the top C, C3-C4 by default — low enough to sit in
-// ambient-pad territory. Home-row keys mirror the classic DAW layout.
-const KEYS: { note: number; label: string; key: string; black: boolean }[] = [
-  { note: 48, label: 'C3', key: 'a', black: false },
-  { note: 49, label: 'C#3', key: 'w', black: true },
-  { note: 50, label: 'D3', key: 's', black: false },
-  { note: 51, label: 'D#3', key: 'e', black: true },
-  { note: 52, label: 'E3', key: 'd', black: false },
-  { note: 53, label: 'F3', key: 'f', black: false },
-  { note: 54, label: 'F#3', key: 't', black: true },
-  { note: 55, label: 'G3', key: 'g', black: false },
-  { note: 56, label: 'G#3', key: 'y', black: true },
-  { note: 57, label: 'A3', key: 'h', black: false },
-  { note: 58, label: 'A#3', key: 'u', black: true },
-  { note: 59, label: 'B3', key: 'j', black: false },
-  { note: 60, label: 'C4', key: 'k', black: false },
+// One octave plus the top C, C3-C4 at offset 0 — low enough to sit in
+// ambient-pad territory. Home-row keys mirror the classic DAW layout;
+// Z/X are reserved for octave (Ableton computer-keyboard convention).
+const KEYS: { note: number; key: string; black: boolean }[] = [
+  { note: 48, key: 'a', black: false },
+  { note: 49, key: 'w', black: true },
+  { note: 50, key: 's', black: false },
+  { note: 51, key: 'e', black: true },
+  { note: 52, key: 'd', black: false },
+  { note: 53, key: 'f', black: false },
+  { note: 54, key: 't', black: true },
+  { note: 55, key: 'g', black: false },
+  { note: 56, key: 'y', black: true },
+  { note: 57, key: 'h', black: false },
+  { note: 58, key: 'u', black: true },
+  { note: 59, key: 'j', black: false },
+  { note: 60, key: 'k', black: false },
 ]
 
 interface KeyboardProps {
@@ -41,20 +48,25 @@ function keySizeClass(black: boolean, compact: boolean): string {
 }
 
 export default function Keyboard({ enabled, onNoteOn, onNoteOff, compact = false }: KeyboardProps) {
-  const heldNotes = useRef<Set<number>>(new Set())
+  const heldBySource = useRef<Map<string, number>>(new Map())
+  const [octaveOffset, setOctaveOffset] = useState(0)
+  const octaveOffsetRef = useRef(octaveOffset)
+  octaveOffsetRef.current = octaveOffset
 
   const press = useCallback(
-    (note: number) => {
-      if (!enabled || heldNotes.current.has(note)) return
-      heldNotes.current.add(note)
+    (sourceId: string, note: number) => {
+      if (!enabled || heldBySource.current.has(sourceId)) return
+      heldBySource.current.set(sourceId, note)
       onNoteOn(note, midiToFrequency(note))
     },
     [enabled, onNoteOn],
   )
 
   const release = useCallback(
-    (note: number) => {
-      if (!heldNotes.current.delete(note)) return
+    (sourceId: string) => {
+      const note = heldBySource.current.get(sourceId)
+      if (note === undefined) return
+      heldBySource.current.delete(sourceId)
       onNoteOff(note)
     },
     [onNoteOff],
@@ -68,12 +80,33 @@ export default function Keyboard({ enabled, onNoteOn, onNoteOff, compact = false
       if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return
       // Same typing-context gate as transport shortcuts (search/filter, etc.).
       if (isTypingTarget(event.target)) return
-      const note = byKey.get(event.key.toLowerCase())
-      if (note !== undefined) press(note)
+
+      const action = resolveShortcutAction({
+        key: event.key,
+        code: event.code,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey,
+        repeat: event.repeat,
+        typing: false,
+        overlayOpen: false,
+      })
+      if (action === 'keyboard.octaveDown') {
+        setOctaveOffset((current) => shiftKeyboardOctave(current, -1))
+        return
+      }
+      if (action === 'keyboard.octaveUp') {
+        setOctaveOffset((current) => shiftKeyboardOctave(current, 1))
+        return
+      }
+
+      const baseNote = byKey.get(event.key.toLowerCase())
+      if (baseNote === undefined) return
+      press(`key:${event.key.toLowerCase()}`, applyKeyboardOctave(baseNote, octaveOffsetRef.current))
     }
     const handleUp = (event: KeyboardEvent) => {
-      const note = byKey.get(event.key.toLowerCase())
-      if (note !== undefined) release(note)
+      release(`key:${event.key.toLowerCase()}`)
     }
 
     window.addEventListener('keydown', handleDown)
@@ -86,24 +119,28 @@ export default function Keyboard({ enabled, onNoteOn, onNoteOff, compact = false
 
   return (
     <div className="flex items-end gap-px" role="group" aria-label="Playing surface">
-      {KEYS.map(({ note, label, key, black }) => (
-        <button
-          key={note}
-          type="button"
-          disabled={!enabled}
-          onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture(e.pointerId)
-            press(note)
-          }}
-          onPointerUp={() => release(note)}
-          onPointerCancel={() => release(note)}
-          onPointerLeave={() => release(note)}
-          className={`flex flex-col items-center justify-end rounded-[1px] border border-al-border pb-1.5 text-[10px] uppercase tracking-wide transition-colors select-none disabled:opacity-40 ${keySizeClass(black, compact)}`}
-        >
-          <span>{key}</span>
-          {!compact && <span className="text-[10px] opacity-60">{label}</span>}
-        </button>
-      ))}
+      {KEYS.map(({ note, key, black }) => {
+        const sounding = applyKeyboardOctave(note, octaveOffset)
+        const sourceId = `pointer:${key}`
+        return (
+          <button
+            key={key}
+            type="button"
+            disabled={!enabled}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId)
+              press(sourceId, sounding)
+            }}
+            onPointerUp={() => release(sourceId)}
+            onPointerCancel={() => release(sourceId)}
+            onPointerLeave={() => release(sourceId)}
+            className={`flex flex-col items-center justify-end rounded-[1px] border border-al-border pb-1.5 text-[10px] uppercase tracking-wide transition-colors select-none disabled:opacity-40 ${keySizeClass(black, compact)}`}
+          >
+            <span>{key}</span>
+            {!compact && <span className="text-[10px] opacity-60">{keyboardNoteLabel(sounding)}</span>}
+          </button>
+        )
+      })}
     </div>
   )
 }

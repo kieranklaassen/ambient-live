@@ -7,12 +7,23 @@
 import type { EngineMessage, ParamId } from './messages'
 import processorUrl from './engine-processor?worker&url'
 import wasmUrl from './engine.wasm?url'
+import { computePeaks, type WaveformPeaks } from './waveform'
+
+/** A decoded sample, kept for waveform drawing and clip playback. */
+export interface LoadedSample {
+  audioBuffer: AudioBuffer
+  durationSec: number
+  peaks: WaveformPeaks
+}
 
 export class AudioEngine {
   private readonly context: AudioContext
   private readonly node: AudioWorkletNode
   private readonly analyser: AnalyserNode
   private readonly meterBuffer: Float32Array<ArrayBuffer>
+  private readonly samples = new Map<number, LoadedSample>()
+  // Which sample currently occupies the core's single audition voice.
+  private voiceSampleId: number | null = null
 
   private constructor(context: AudioContext, node: AudioWorkletNode, analyser: AnalyserNode) {
     this.context = context
@@ -32,8 +43,13 @@ export class AudioEngine {
     ])
 
     const node = new AudioWorkletNode(context, 'ambient-engine', {
-      numberOfInputs: 0,
+      // One input so audio scheduled outside the core (timeline clips) can
+      // join its dry bus and reach the reverb.
+      numberOfInputs: 1,
       numberOfOutputs: 1,
+      channelCount: 2,
+      channelCountMode: 'explicit',
+      channelInterpretation: 'speakers',
       outputChannelCount: [2],
       processorOptions: { module },
     })
@@ -58,10 +74,52 @@ export class AudioEngine {
     this.post({ type: 'set-param', paramId, value })
   }
 
-  // Decodes an audio file with the browser's decoder and ships raw PCM to the
-  // core, which stays codec-free (plan KTD-6 / R17).
-  async decodeAndLoadSample(encoded: ArrayBuffer): Promise<{ durationSec: number }> {
+  // Decodes an audio file with the browser's decoder and keeps the result:
+  // the peaks draw the clip, the buffer feeds clip playback, and the raw PCM
+  // is what the codec-free core receives (plan KTD-6 / R17). Decoding runs on
+  // the engine's context so the PCM is already at the core's sample rate.
+  async loadSample(sampleId: number, encoded: ArrayBuffer): Promise<LoadedSample> {
+    const cached = this.samples.get(sampleId)
+    if (cached) return cached
+
     const audioBuffer = await this.context.decodeAudioData(encoded)
+    const channels = Array.from({ length: audioBuffer.numberOfChannels }, (_, index) =>
+      audioBuffer.getChannelData(index),
+    )
+    const loaded: LoadedSample = {
+      audioBuffer,
+      durationSec: audioBuffer.duration,
+      peaks: computePeaks(channels, audioBuffer.length),
+    }
+    this.samples.set(sampleId, loaded)
+    return loaded
+  }
+
+  sample(sampleId: number): LoadedSample | undefined {
+    return this.samples.get(sampleId)
+  }
+
+  forgetSample(sampleId: number): void {
+    this.samples.delete(sampleId)
+    if (this.voiceSampleId === sampleId) this.voiceSampleId = null
+  }
+
+  /** Auditions a loaded sample through the core's single sample voice. */
+  playSample(sampleId: number): void {
+    const loaded = this.samples.get(sampleId)
+    if (!loaded) return
+    if (this.voiceSampleId !== sampleId) {
+      this.sendSampleToVoice(loaded.audioBuffer)
+      this.voiceSampleId = sampleId
+    }
+    this.post({ type: 'play-sample' })
+  }
+
+  stopSample(): void {
+    this.post({ type: 'stop-sample' })
+  }
+
+  private sendSampleToVoice(audioBuffer: AudioBuffer): void {
     const frames = audioBuffer.length
     const channels: 1 | 2 = audioBuffer.numberOfChannels >= 2 ? 2 : 1
 
@@ -82,19 +140,27 @@ export class AudioEngine {
       { type: 'load-sample', frames, channels, pcm } satisfies EngineMessage,
       [pcm.buffer],
     )
-
-    return { durationSec: audioBuffer.duration }
-  }
-
-  playSample(): void {
-    this.post({ type: 'play-sample' })
-  }
-
-  stopSample(): void {
-    this.post({ type: 'stop-sample' })
   }
 
   // Peak level of the current output window, 0..1 — the UI meter's signal.
+  /** Clock the timeline schedules against. */
+  get currentTime(): number {
+    return this.context.currentTime
+  }
+
+  /** Where externally scheduled audio connects to reach the core's reverb. */
+  get clipDestination(): AudioNode {
+    return this.node
+  }
+
+  createGain(): GainNode {
+    return this.context.createGain()
+  }
+
+  createBufferSource(): AudioBufferSourceNode {
+    return this.context.createBufferSource()
+  }
+
   outputLevel(): number {
     this.analyser.getFloatTimeDomainData(this.meterBuffer)
     let peak = 0
@@ -106,6 +172,7 @@ export class AudioEngine {
   }
 
   async close(): Promise<void> {
+    this.samples.clear()
     this.node.disconnect()
     this.analyser.disconnect()
     await this.context.close()

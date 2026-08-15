@@ -15,8 +15,11 @@ enum class Param : int {
   kMasterGain = 4,
 };
 
-// The whole instrument: a sine voice pool and one sample voice summed into a
-// Dattorro plate. Statically allocated; process() is allocation-free.
+// The whole instrument: a sine voice pool, one sample voice, and a stereo
+// input bus, all summed into a Dattorro plate. The input bus carries audio
+// produced outside the core — browser-scheduled timeline clips today — so it
+// reaches the same reverb as everything else. Statically allocated;
+// process() is allocation-free.
 class Engine {
  public:
   static constexpr int kVoiceCount = 8;
@@ -37,6 +40,12 @@ class Engine {
   void sample_stop() { sample_.stop(); }
   bool sample_playing() const { return sample_.playing; }
 
+  // Write up to kMaxBlockFrames of external audio here before each process()
+  // call; process() consumes and clears it, so a block with nothing written
+  // contributes silence instead of repeating the previous block.
+  float* in_left() { return in_left_; }
+  float* in_right() { return in_right_; }
+
   // Renders `frames` (<= kMaxBlockFrames) into the internal output buffers.
   void process(int frames);
 
@@ -56,6 +65,8 @@ class Engine {
   SampleVoice sample_;
   DattorroReverb reverb_;
 
+  float in_left_[kMaxBlockFrames] = {};
+  float in_right_[kMaxBlockFrames] = {};
   float out_left_[kMaxBlockFrames];
   float out_right_[kMaxBlockFrames];
 };

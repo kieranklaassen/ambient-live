@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react'
-import { useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react'
+import { useMemo, useRef, useState, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import { filesToLocalSamples, localFolderMode, pickLocalFolderSamples, revokeLocalSampleUrls } from './local-folder'
 import { setSampleDragData } from './sample-drag'
 import type { SampleItem } from './sample-library'
@@ -15,9 +15,11 @@ interface SampleBrowserProps {
   onStop: () => void
   onLocalSamplesChange: (samples: SampleItem[], folderName: string | null) => void
   className?: string
+  style?: CSSProperties
+  children?: ReactNode
 }
 
-export default function SampleBrowser({ samples, localSamples, localFolderName, enabled, playingSampleId, onPlay, onStop, onLocalSamplesChange, className = '' }: SampleBrowserProps) {
+export default function SampleBrowser({ samples, localSamples, localFolderName, enabled, playingSampleId, onPlay, onStop, onLocalSamplesChange, className = '', style, children }: SampleBrowserProps) {
   const fileInput = useRef<HTMLInputElement>(null)
   const localFileInput = useRef<HTMLInputElement>(null)
   const [tab, setTab] = useState<BrowserTab>('library')
@@ -45,7 +47,8 @@ export default function SampleBrowser({ samples, localSamples, localFolderName, 
     setLoadingLocal(true)
     try {
       const result = await pickLocalFolderSamples(localSamples)
-      if (!result) return
+      if (result.status === 'unavailable') { localFileInput.current?.click(); return }
+      if (result.status === 'cancelled') return
       revokeLocalSampleUrls(localSamples)
       onLocalSamplesChange(result.samples, result.folderName)
       setTab('local')
@@ -71,30 +74,27 @@ export default function SampleBrowser({ samples, localSamples, localFolderName, 
   }
 
   return (
-    <aside className={`workstation-region flex flex-col border-r border-al-border bg-al-panel ${className}`} data-testid="sample-browser" aria-label="Sample browser">
-      <div className="border-b border-al-border sg-p-1">
-        <h2 className="text-[10px] font-medium uppercase tracking-[0.14em] text-al-muted sg-leading-2">Places</h2>
-        <div className="mt-sg-1 grid grid-cols-2 gap-px bg-al-border" role="tablist" aria-label="Browser source">
-          <button type="button" role="tab" aria-selected={tab === 'library'} onClick={() => setTab('library')} className={`px-2 py-1 text-[11px] uppercase tracking-wide ${tab === 'library' ? 'bg-al-raised text-al-text' : 'bg-al-sunken text-al-muted'}`} data-testid="browser-tab-library">Library</button>
-          <button type="button" role="tab" aria-selected={tab === 'local'} onClick={() => setTab('local')} className={`px-2 py-1 text-[11px] uppercase tracking-wide ${tab === 'local' ? 'bg-al-raised text-al-text' : 'bg-al-sunken text-al-muted'}`} data-testid="browser-tab-local">Local</button>
-        </div>
+    <aside className={`workstation-region flex flex-col border-r border-al-border bg-al-panel ${className}`} style={style} data-testid="sample-browser" aria-label="Sample browser">
+      <div className="grid grid-cols-2 gap-px border-b border-al-border bg-al-border" role="tablist" aria-label="Browser source">
+        <button type="button" role="tab" aria-selected={tab === 'library'} onClick={() => setTab('library')} className={`px-2 py-1 text-[11px] uppercase tracking-wide ${tab === 'library' ? 'bg-al-raised text-al-text' : 'bg-al-sunken text-al-muted'}`} data-testid="browser-tab-library">Library</button>
+        <button type="button" role="tab" aria-selected={tab === 'local'} onClick={() => setTab('local')} className={`px-2 py-1 text-[11px] uppercase tracking-wide ${tab === 'local' ? 'bg-al-raised text-al-text' : 'bg-al-sunken text-al-muted'}`} data-testid="browser-tab-local">Local</button>
       </div>
       {tab === 'library' ? (
         <form onSubmit={upload} className="space-y-sg-1 border-b border-al-border sg-p-1" data-testid="sample-upload-form">
-          <p className="text-[10px] uppercase tracking-wide text-al-dim">Server library</p>
-          <input type="text" placeholder="Name (optional)" value={data.name} onChange={(e) => setData('name', e.target.value)} className="w-full rounded-[1px] border border-al-hairline bg-al-sunken px-1.5 py-1 text-xs text-al-text focus:border-al-accent focus:ring-0" />
-          <input ref={fileInput} type="file" accept="audio/*" required onChange={(e) => setData('audio_file', e.target.files?.[0] ?? null)} className="w-full text-[11px] text-al-muted file:mr-2 file:rounded-[1px] file:border-0 file:bg-al-raised file:px-2 file:py-1 file:text-al-text" />
+          <input type="text" placeholder="Name" value={data.name} onChange={(e) => setData('name', e.target.value)} className="w-full rounded-[1px] border border-al-hairline bg-al-sunken px-1.5 py-1 text-xs text-al-text focus:border-al-accent focus:ring-0" />
+          <label className="block cursor-pointer truncate rounded-[1px] border border-al-hairline bg-al-raised px-2 py-1 text-center text-[11px] uppercase tracking-wide text-al-text">
+            {data.audio_file ? data.audio_file.name : 'File'}
+            <input ref={fileInput} type="file" accept="audio/*" onChange={(e) => setData('audio_file', e.target.files?.[0] ?? null)} className="sr-only" />
+          </label>
           <button type="submit" disabled={processing || !data.audio_file} className="w-full rounded-[1px] border border-al-hairline bg-al-raised px-2 py-1 text-[11px] uppercase tracking-wide text-al-text disabled:opacity-40">Upload</button>
           {errors.audio_file && <p className="text-xs text-al-danger">{errors.audio_file}</p>}
         </form>
       ) : (
         <div className="space-y-sg-1 border-b border-al-border sg-p-1" data-testid="local-folder-controls">
-          <p className="text-[10px] uppercase tracking-wide text-al-dim">Session browse — not uploaded</p>
           <button type="button" onClick={() => void openLocalFolder()} disabled={loadingLocal} className="w-full rounded-[1px] border border-al-hairline bg-al-raised px-2 py-1 text-[11px] uppercase tracking-wide text-al-text disabled:opacity-40" data-testid="open-local-folder">
-            {loadingLocal ? 'Loading…' : folderMode === 'directory-picker' ? 'Open folder' : 'Choose audio files'}
+            {loadingLocal ? 'Loading…' : folderMode === 'directory-picker' ? 'Folder' : 'Files'}
           </button>
           <input ref={localFileInput} type="file" accept="audio/*" multiple className="hidden" data-testid="local-file-input" {...({ webkitdirectory: '', directory: '' } as Record<string, string>)} onChange={(e) => { onLocalFilesSelected(e.target.files); e.target.value = '' }} />
-          {folderMode === 'file-input' && <p className="text-[10px] text-al-dim">Directory picker unavailable — use multi-file / folder selection.</p>}
           {localFolderName && (
             <div className="flex items-center justify-between gap-2 text-[11px] text-al-muted">
               <span className="truncate">{localFolderName}</span>
@@ -109,7 +109,7 @@ export default function SampleBrowser({ samples, localSamples, localFolderName, 
           type="search"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter…"
+          placeholder="Filter"
           className="w-full rounded-[1px] border border-al-hairline bg-al-sunken px-1.5 py-1 text-xs text-al-text focus:border-al-accent focus:ring-0"
           aria-label="Filter samples"
           data-testid="sample-filter"
@@ -117,15 +117,15 @@ export default function SampleBrowser({ samples, localSamples, localFolderName, 
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto bg-al-sunken">
         {visible.length === 0 ? (
-          <p className="px-sg-2 py-sg-2 text-xs text-al-dim">{activeList.length === 0 ? (tab === 'library' ? 'No samples yet — upload or switch to Local.' : 'Open a folder to browse local audio.') : 'No samples match this filter.'}</p>
+          <p className="px-sg-2 py-sg-2 text-xs text-al-dim">{activeList.length === 0 ? (tab === 'library' ? 'Empty.' : 'No files.') : 'No match.'}</p>
         ) : (
-          <ul className="divide-y divide-al-border" data-testid="sample-list">
+          <ul className="divide-y divide-al-border" role="list" data-testid="sample-list">
             {visible.map((sample) => {
               const playing = playingSampleId === sample.id
               return (
                 <li key={`${tab}-${sample.id}`} draggable onDragStart={(event) => onDragStart(event, sample)} className={`flex cursor-grab items-center gap-1 px-sg-1 py-sg-1 ${playing ? 'bg-al-accent-soft' : 'hover:bg-al-raised'}`}>
                   <span className="min-w-0 flex-1 truncate text-xs text-al-text">{sample.name}</span>
-                  <button type="button" disabled={!enabled} onClick={() => (playing ? onStop() : onPlay(sample))} className={`rounded-[1px] border px-1.5 py-0.5 text-[10px] uppercase tracking-wide disabled:opacity-40 ${playing ? 'border-al-accent bg-al-accent text-al-chrome' : 'border-al-hairline bg-al-panel text-al-muted'}`}>{playing ? 'Stop' : 'Play'}</button>
+                  <button type="button" disabled={!enabled} onClick={() => (playing ? onStop() : onPlay(sample))} aria-label={playing ? 'Stop' : 'Play'} className={`rounded-[1px] border px-1.5 py-0.5 text-[10px] uppercase tracking-wide disabled:opacity-40 ${playing ? 'border-al-accent bg-al-accent text-al-chrome' : 'border-al-hairline bg-al-panel text-al-muted'}`}>{playing ? 'Stop' : 'Play'}</button>
                   {tab === 'library' && <button type="button" onClick={() => router.delete(`/samples/${sample.id}`)} className="rounded-[1px] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-al-dim hover:text-al-danger">Del</button>}
                 </li>
               )
@@ -133,6 +133,7 @@ export default function SampleBrowser({ samples, localSamples, localFolderName, 
           </ul>
         )}
       </div>
+      {children}
     </aside>
   )
 }

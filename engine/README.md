@@ -6,6 +6,7 @@ The portable audio core. Implemented so far (v0.1 slice): a sine voice pool with
 
 - No browser-only, Rails, or Inertia dependencies in this directory. The core must compile unchanged for a native shell (JUCE/AUv3 for the eventual iPad app).
 - The UI talks to the engine through a thin message/parameter interface (`src/api.cpp` C ABI); the engine never reads application state directly.
+- A stereo input bus (`engine_in_left` / `engine_in_right`) carries audio produced outside the core — browser-scheduled timeline clips today — into the same dry bus as the voices, so it reaches the reverb. The host writes at most `engine_max_block_frames()` frames before each `engine_process` call; `process` consumes and clears the bus, so a block with nothing written is silence.
 - Audio-thread code is allocation-free; denormals are flushed to zero in software (WASM has no hardware FTZ) — see `src/dsp_util.h`.
 
 ## Layout

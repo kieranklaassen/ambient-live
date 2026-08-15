@@ -4,6 +4,7 @@
  *
  * Synth collision policy (see `keyboard.tsx` KEYS):
  * bare letter keys a/w/s/e/d/f/t/g/y/h/u/j/k drive the sine keyboard.
+ * Z/X shift octave (Ableton computer-keyboard convention) and are not note keys.
  * Transport shortcuts therefore never bind those bare letters.
  * Focus-filter uses Mod+F (not bare F) so F3 remains playable.
  */
@@ -14,8 +15,16 @@ export type ShortcutAction =
   | 'transport.home'
   | 'loop.toggle'
   | 'browser.focusFilter'
+  | 'keyboard.octaveDown'
+  | 'keyboard.octaveUp'
   | 'overlay.shortcuts'
   | 'overlay.dismiss'
+
+/** Offset 0 is the default C3–C4 computer-keyboard range (MIDI 48–60). */
+export const KEYBOARD_OCTAVE_MIN = -4
+export const KEYBOARD_OCTAVE_MAX = 5
+
+const PITCH_CLASS_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
 
 export interface KeyEventDescriptor {
   key: string
@@ -59,6 +68,14 @@ export const SHORTCUT_HELP: readonly ShortcutHelpEntry[] = [
   {
     keys: 'Mod+F',
     description: 'Focus sample browser filter (bare F is synth F3)',
+  },
+  {
+    keys: 'Z',
+    description: 'Octave down',
+  },
+  {
+    keys: 'X',
+    description: 'Octave up',
   },
   {
     keys: '?',
@@ -198,7 +215,41 @@ export function resolveShortcutAction(event: KeyEventDescriptor): ShortcutAction
     return 'browser.focusFilter'
   }
 
+  // Bare Z/X — Mod+Z is deferred undo, not octave.
+  if (
+    bareKey(event) &&
+    !event.shiftKey &&
+    (event.key === 'z' || event.key === 'Z' || event.code === 'KeyZ')
+  ) {
+    return 'keyboard.octaveDown'
+  }
+  if (
+    bareKey(event) &&
+    !event.shiftKey &&
+    (event.key === 'x' || event.key === 'X' || event.code === 'KeyX')
+  ) {
+    return 'keyboard.octaveUp'
+  }
+
   return null
+}
+
+/** Shift the computer-keyboard octave offset, clamped to the playable MIDI range. */
+export function shiftKeyboardOctave(offset: number, delta: number): number {
+  return Math.min(KEYBOARD_OCTAVE_MAX, Math.max(KEYBOARD_OCTAVE_MIN, offset + delta))
+}
+
+/** MIDI note for a layout key at the given octave offset, clamped to 0–127. */
+export function applyKeyboardOctave(baseNote: number, octaveOffset: number): number {
+  return Math.min(127, Math.max(0, baseNote + octaveOffset * 12))
+}
+
+/** Display name for a MIDI note (MIDI 60 = C4). */
+export function keyboardNoteLabel(midiNote: number): string {
+  const clamped = Math.min(127, Math.max(0, Math.round(midiNote)))
+  const pitchClass = clamped % 12
+  const octave = Math.floor(clamped / 12) - 1
+  return `${PITCH_CLASS_NAMES[pitchClass]}${octave}`
 }
 
 /** Whether the resolved action should call preventDefault (Space scroll, etc.). */
@@ -209,6 +260,8 @@ export function shouldPreventDefault(action: ShortcutAction): boolean {
     case 'transport.home':
     case 'loop.toggle':
     case 'browser.focusFilter':
+    case 'keyboard.octaveDown':
+    case 'keyboard.octaveUp':
     case 'overlay.shortcuts':
     case 'overlay.dismiss':
       return true
