@@ -119,7 +119,12 @@ export function useClipDrag({
         trimmable: isClipTrimmable(clip),
       })
 
-      event.currentTarget.setPointerCapture(event.pointerId)
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      } catch {
+        // No capture available for this pointer; the drag still tracks moves
+        // over the clip itself.
+      }
       event.preventDefault()
       sessionRef.current = {
         pointerId: event.pointerId,
