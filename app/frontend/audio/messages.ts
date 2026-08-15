@@ -34,6 +34,9 @@ export interface EngineExports {
   engine_sample_play: () => void
   engine_sample_stop: () => void
   engine_sample_playing: () => number
+  engine_in_left: () => number
+  engine_in_right: () => number
+  engine_max_block_frames: () => number
   engine_process: (frames: number) => void
   engine_out_left: () => number
   engine_out_right: () => number

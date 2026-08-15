@@ -43,8 +43,13 @@ export class AudioEngine {
     ])
 
     const node = new AudioWorkletNode(context, 'ambient-engine', {
-      numberOfInputs: 0,
+      // One input so audio scheduled outside the core (timeline clips) can
+      // join its dry bus and reach the reverb.
+      numberOfInputs: 1,
       numberOfOutputs: 1,
+      channelCount: 2,
+      channelCountMode: 'explicit',
+      channelInterpretation: 'speakers',
       outputChannelCount: [2],
       processorOptions: { module },
     })
@@ -138,6 +143,24 @@ export class AudioEngine {
   }
 
   // Peak level of the current output window, 0..1 — the UI meter's signal.
+  /** Clock the timeline schedules against. */
+  get currentTime(): number {
+    return this.context.currentTime
+  }
+
+  /** Where externally scheduled audio connects to reach the core's reverb. */
+  get clipDestination(): AudioNode {
+    return this.node
+  }
+
+  createGain(): GainNode {
+    return this.context.createGain()
+  }
+
+  createBufferSource(): AudioBufferSourceNode {
+    return this.context.createBufferSource()
+  }
+
   outputLevel(): number {
     this.analyser.getFloatTimeDomainData(this.meterBuffer)
     let peak = 0

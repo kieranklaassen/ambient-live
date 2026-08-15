@@ -37,6 +37,12 @@ void engine_sample_stop() { g_engine.sample_stop(); }
 
 int engine_sample_playing() { return g_engine.sample_playing() ? 1 : 0; }
 
+float* engine_in_left() { return g_engine.in_left(); }
+
+float* engine_in_right() { return g_engine.in_right(); }
+
+int engine_max_block_frames() { return ambient::Engine::kMaxBlockFrames; }
+
 void engine_process(int frames) { g_engine.process(frames); }
 
 const float* engine_out_left() { return g_engine.out_left(); }

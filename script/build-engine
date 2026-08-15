@@ -16,6 +16,9 @@ exports=(
   engine_sample_play
   engine_sample_stop
   engine_sample_playing
+  engine_in_left
+  engine_in_right
+  engine_max_block_frames
   engine_process
   engine_out_left
   engine_out_right

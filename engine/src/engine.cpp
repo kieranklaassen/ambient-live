@@ -11,6 +11,10 @@ void Engine::init(float sample_rate) {
     voice.init(sample_rate);
   }
   sample_.loaded(0, 1);
+  for (int i = 0; i < kMaxBlockFrames; ++i) {
+    in_left_[i] = 0.0f;
+    in_right_[i] = 0.0f;
+  }
   reverb_.init(sample_rate);
 }
 
@@ -81,8 +85,11 @@ void Engine::process(int frames) {
   const float dry_gain = 1.0f - reverb_mix_;
 
   for (int i = 0; i < frames; ++i) {
-    float dry_left = 0.0f;
-    float dry_right = 0.0f;
+    float dry_left = in_left_[i];
+    float dry_right = in_right_[i];
+    // Consumed once: the host writes the next block from scratch.
+    in_left_[i] = 0.0f;
+    in_right_[i] = 0.0f;
 
     for (SineVoice& voice : voices_) {
       const float value = voice.render();

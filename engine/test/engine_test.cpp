@@ -224,6 +224,52 @@ void test_sample_playback() {
   EXPECT(residual == 0.0f, "output should be silent after sample ends");
 }
 
+void test_input_bus_reaches_output_and_reverb() {
+  ambient::Engine& engine = g_test_engine;
+  engine.init(kSampleRate);
+  engine.set_param(ambient::Param::kReverbMix, 0.0f);
+  engine.set_param(ambient::Param::kMasterGain, 1.0f);
+
+  for (int i = 0; i < kBlock; ++i) {
+    engine.in_left()[i] = 0.25f;
+    engine.in_right()[i] = -0.25f;
+  }
+  engine.process(kBlock);
+  bool passthrough = true;
+  for (int i = 0; i < kBlock; ++i) {
+    if (std::fabs(engine.out_left()[i] - 0.25f) > 1.0e-6f ||
+        std::fabs(engine.out_right()[i] + 0.25f) > 1.0e-6f) {
+      passthrough = false;
+      break;
+    }
+  }
+  EXPECT(passthrough, "dry input bus should pass through unchanged");
+
+  // A block with nothing written must not repeat the previous one.
+  engine.process(kBlock);
+  float residual = 0.0f;
+  for (int i = 0; i < kBlock; ++i) {
+    residual += std::fabs(engine.out_left()[i]);
+  }
+  EXPECT(residual == 0.0f, "input bus should clear between blocks");
+
+  // The same signal through the reverb leaves a tail after the input stops.
+  engine.init(kSampleRate);
+  engine.set_param(ambient::Param::kReverbMix, 1.0f);
+  engine.set_param(ambient::Param::kReverbDecay, 0.7f);
+  engine.set_param(ambient::Param::kMasterGain, 1.0f);
+  for (int block = 0; block < 8; ++block) {
+    for (int i = 0; i < kBlock; ++i) {
+      engine.in_left()[i] = 0.5f;
+      engine.in_right()[i] = 0.5f;
+    }
+    engine.process(kBlock);
+  }
+  float tail_rms = 0.0f;
+  render_seconds(engine, 0.25f, &tail_rms);
+  EXPECT(tail_rms > 1.0e-5f, "input bus should feed the reverb tail");
+}
+
 }  // namespace
 
 int main() {
@@ -234,6 +280,7 @@ int main() {
   test_stability_under_load();
   test_denormals_flush_to_silence();
   test_sample_playback();
+  test_input_bus_reaches_output_and_reverb();
 
   if (g_failures == 0) {
     std::printf("engine tests: all passed\n");

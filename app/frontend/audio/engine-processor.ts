@@ -12,6 +12,8 @@ class AmbientEngineProcessor extends AudioWorkletProcessor {
   private readonly engine: EngineExports
   private outLeft: Float32Array
   private outRight: Float32Array
+  private inLeft: Float32Array
+  private inRight: Float32Array
 
   constructor(options?: AudioWorkletNodeOptions) {
     super()
@@ -25,6 +27,8 @@ class AmbientEngineProcessor extends AudioWorkletProcessor {
     // processor's lifetime; process() itself never allocates.
     this.outLeft = new Float32Array(0)
     this.outRight = new Float32Array(0)
+    this.inLeft = new Float32Array(0)
+    this.inRight = new Float32Array(0)
 
     this.port.onmessage = (event: MessageEvent<EngineMessage>) => {
       this.handleMessage(event.data)
@@ -70,16 +74,27 @@ class AmbientEngineProcessor extends AudioWorkletProcessor {
     }
   }
 
-  process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
+  process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
     const output = outputs[0]
     const frames = output[0].length
-
-    this.engine.engine_process(frames)
 
     if (this.outLeft.length !== frames) {
       this.outLeft = new Float32Array(this.engine.memory.buffer, this.engine.engine_out_left(), frames)
       this.outRight = new Float32Array(this.engine.memory.buffer, this.engine.engine_out_right(), frames)
+      this.inLeft = new Float32Array(this.engine.memory.buffer, this.engine.engine_in_left(), frames)
+      this.inRight = new Float32Array(this.engine.memory.buffer, this.engine.engine_in_right(), frames)
     }
+
+    // Timeline clips arrive here as node input and join the core's dry bus, so
+    // they reach the reverb. A disconnected input is an empty array; the core
+    // clears the bus each block, so silence needs no work here.
+    const input = inputs[0]
+    if (input !== undefined && input.length > 0) {
+      this.inLeft.set(input[0].subarray(0, frames))
+      this.inRight.set((input.length > 1 ? input[1] : input[0]).subarray(0, frames))
+    }
+
+    this.engine.engine_process(frames)
     output[0].set(this.outLeft)
     if (output.length > 1) output[1].set(this.outRight)
 
