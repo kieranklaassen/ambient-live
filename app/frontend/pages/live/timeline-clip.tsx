@@ -13,7 +13,11 @@ interface TimelineClipProps {
   fades: ClipFades
   peaks: WaveformPeaks | null
   dragging: boolean
-  onPointerDown: (event: ReactPointerEvent<HTMLElement>, clip: SampleRegion) => void
+  onPointerDown: (
+    event: ReactPointerEvent<HTMLElement>,
+    clip: SampleRegion,
+    fades: ClipFades,
+  ) => void
   onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void
   onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void
 }
@@ -40,7 +44,7 @@ export default function TimelineClip({
       data-region={clip.id}
       data-testid="timeline-clip"
       title={`${clip.name} @ ${clip.startSec.toFixed(2)}s · ${clip.durationSec.toFixed(2)}s`}
-      onPointerDown={(event) => onPointerDown(event, clip)}
+      onPointerDown={(event) => onPointerDown(event, clip, fades)}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}

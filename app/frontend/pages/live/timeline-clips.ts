@@ -26,9 +26,14 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
 
+/**
+ * Keeps the fades inside the clip after its length changed. The pair has to
+ * fit as well as each fade on its own — the player ramps to full gain between
+ * them, so overlapping fades would play a shape the timeline never drew.
+ */
 function withClampedFades(clip: SampleRegion): SampleRegion {
   const fadeInSec = clamp(clip.fadeInSec, 0, clip.durationSec)
-  const fadeOutSec = clamp(clip.fadeOutSec, 0, clip.durationSec)
+  const fadeOutSec = clamp(clip.fadeOutSec, 0, clip.durationSec - fadeInSec)
   if (fadeInSec === clip.fadeInSec && fadeOutSec === clip.fadeOutSec) return clip
   return { ...clip, fadeInSec, fadeOutSec }
 }

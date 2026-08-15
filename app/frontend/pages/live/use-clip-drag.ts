@@ -7,6 +7,7 @@ import {
   setFadeOut,
   trimClipEnd,
   trimClipStart,
+  type ClipFades,
 } from './timeline-clips'
 import { LOOP_LENGTH_SEC, type SampleRegion } from './timeline-model'
 
@@ -104,18 +105,20 @@ export function useClipDrag({
   const [dragTarget, setDragTarget] = useState<ClipDragTarget | null>(null)
 
   const onPointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLElement>, clip: SampleRegion) => {
+    (event: ReactPointerEvent<HTMLElement>, clip: SampleRegion, fades: ClipFades) => {
       const laneWidth = laneRef.current?.getBoundingClientRect().width ?? 0
       const bounds = event.currentTarget.getBoundingClientRect()
       if (laneWidth <= 0 || bounds.width <= 0) return
 
       const perPixel = secondsPerPixel(laneWidth, loopLengthSec)
+      // Hit-test against the fades the clip draws, crossfades included, so a
+      // handle an overlap moved inward is still where the press lands.
       const target = resolveClipDragTarget({
         offsetXPx: event.clientX - bounds.left,
         offsetYPx: event.clientY - bounds.top,
         widthPx: bounds.width,
-        fadeInPx: clip.fadeInSec / perPixel,
-        fadeOutPx: clip.fadeOutSec / perPixel,
+        fadeInPx: fades.fadeInSec / perPixel,
+        fadeOutPx: fades.fadeOutSec / perPixel,
         trimmable: isClipTrimmable(clip),
       })
 

@@ -87,6 +87,13 @@ export class ClipPlayer {
     return cancelled
   }
 
+  /** Silences the clip scheduled under `key`, whether or not it has started. */
+  stop(key: string): void {
+    for (const entry of [...this.active]) {
+      if (entry.key === key) this.silence(entry)
+    }
+  }
+
   /** Silences everything scheduled, started or not. */
   stopAll(): void {
     for (const entry of [...this.active]) {

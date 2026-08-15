@@ -79,6 +79,13 @@ describe('trimClipEnd', () => {
     const late = clip({ startSec: LOOP_LENGTH_SEC - 3, sourceDurationSec: 30, durationSec: 3 })
     expect(trimClipEnd(late, 10).durationSec).toBeCloseTo(3, 5)
   })
+
+  it('keeps the fade pair inside a shortened clip', () => {
+    const trimmed = trimClipEnd(clip({ fadeInSec: 3, fadeOutSec: 3 }), -2)
+    expect(trimmed.durationSec).toBeCloseTo(4, 5)
+    expect(trimmed.fadeInSec).toBeCloseTo(3, 5)
+    expect(trimmed.fadeOutSec).toBeCloseTo(1, 5)
+  })
 })
 
 describe('fades', () => {

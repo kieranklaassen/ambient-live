@@ -20,6 +20,23 @@ interface TransportAnchor {
   iteration: number
 }
 
+/** A clip start already handed to the player. */
+interface ScheduledStart {
+  clipId: string
+  /** Loop pass the start belongs to. */
+  iteration: number
+  /** Where on the timeline the clip stood when it was scheduled. */
+  startSec: number
+}
+
+/**
+ * Dedupe key for a clip start. The timeline position is part of it, so moving
+ * a clip schedules its new position even within the same loop pass.
+ */
+function scheduleKey(start: ScheduledStart): string {
+  return `${start.clipId}:${start.iteration}:${start.startSec.toFixed(3)}`
+}
+
 interface TransportPosition {
   playheadSec: number
   iteration: number
@@ -76,10 +93,8 @@ export function useClipTransport({
   const anchorRef = useRef<TransportAnchor | null>(null)
   // Loop passes are numbered across anchors so a re-pin cannot reuse a number.
   const nextIterationRef = useRef(0)
-  // Clip starts already handed to the player, keyed by clip, loop pass, and
-  // the timeline position they were scheduled at. Moving a clip changes the
-  // key, so the new position is scheduled even within the same loop pass.
-  const scheduledRef = useRef(new Map<string, number>())
+  // Clip starts already handed to the player, by their schedule key.
+  const scheduledRef = useRef(new Map<string, ScheduledStart>())
   const clipsRef = useRef(clips)
   const clipFadesRef = useRef(clipFades)
   const playheadRef = useRef(playheadSec)
@@ -172,69 +187,83 @@ export function useClipTransport({
     return () => cancelAnimationFrame(frame)
   }, [anchorAt, engineRef, resetSchedule, transport])
 
-  // Hands clip starts to the player a fraction of a second before they are due.
+  /** Hands the player every clip start due within the lookahead window. */
+  const schedule = useCallback(() => {
+    const engine = engineRef.current
+    const player = clipPlayerRef.current
+    if (!engine || !player) return
+
+    const now = engine.currentTime
+    const loop = loopEnabledRef.current
+    const position = positionFromAnchor(anchorAt(engine), now, loop)
+    if (position.finished) return
+
+    const due = clipsInWindow({
+      clips: clipsRef.current,
+      playheadSec: position.playheadSec,
+      lookaheadSec: SCHEDULE_LOOKAHEAD_SEC,
+      iteration: position.iteration,
+      loopEnabled: loop,
+    })
+
+    for (const entry of due) {
+      const clip = clipsRef.current.find((candidate) => candidate.id === entry.clipId)
+      const loaded = clip ? engine.sample(clip.sampleId) : undefined
+      if (!clip || !loaded) continue
+      const start: ScheduledStart = {
+        clipId: entry.clipId,
+        iteration: entry.iteration,
+        startSec: clip.startSec,
+      }
+      const key = scheduleKey(start)
+      if (scheduledRef.current.has(key)) continue
+      const fades = clipFadesRef.current.get(clip.id) ?? clip
+      player.play(
+        key,
+        {
+          buffer: loaded.audioBuffer,
+          offsetSec: clip.offsetSec,
+          durationSec: clip.durationSec,
+          fadeInSec: fades.fadeInSec,
+          fadeOutSec: fades.fadeOutSec,
+        },
+        now + entry.startsInSec,
+      )
+      scheduledRef.current.set(key, start)
+    }
+
+    for (const [key, start] of scheduledRef.current) {
+      if (start.iteration < position.iteration) scheduledRef.current.delete(key)
+    }
+  }, [anchorAt, clipPlayerRef, engineRef])
+
   // Runs on a timer rather than a frame so a backgrounded tab keeps playing.
   useEffect(() => {
     if (transport !== 'playing') return
-
-    const schedule = () => {
-      const engine = engineRef.current
-      const player = clipPlayerRef.current
-      if (!engine || !player) return
-
-      const now = engine.currentTime
-      const loop = loopEnabledRef.current
-      const position = positionFromAnchor(anchorAt(engine), now, loop)
-      if (position.finished) return
-
-      const due = clipsInWindow({
-        clips: clipsRef.current,
-        playheadSec: position.playheadSec,
-        lookaheadSec: SCHEDULE_LOOKAHEAD_SEC,
-        iteration: position.iteration,
-        loopEnabled: loop,
-      })
-
-      for (const entry of due) {
-        const clip = clipsRef.current.find((candidate) => candidate.id === entry.clipId)
-        const loaded = clip ? engine.sample(clip.sampleId) : undefined
-        if (!clip || !loaded) continue
-        const key = `${entry.clipId}:${entry.iteration}:${clip.startSec.toFixed(3)}`
-        if (scheduledRef.current.has(key)) continue
-        const fades = clipFadesRef.current.get(clip.id) ?? clip
-        player.play(
-          key,
-          {
-            buffer: loaded.audioBuffer,
-            offsetSec: clip.offsetSec,
-            durationSec: clip.durationSec,
-            fadeInSec: fades.fadeInSec,
-            fadeOutSec: fades.fadeOutSec,
-          },
-          now + entry.startsInSec,
-        )
-        scheduledRef.current.set(key, entry.iteration)
-      }
-
-      for (const [key, iteration] of scheduledRef.current) {
-        if (iteration < position.iteration) scheduledRef.current.delete(key)
-      }
-    }
-
     schedule()
     const timer = window.setInterval(schedule, SCHEDULE_TICK_MS)
     return () => window.clearInterval(timer)
-  }, [anchorAt, clipPlayerRef, engineRef, transport])
+  }, [schedule, transport])
 
-  // An edit re-derives the queue. Clips already sounding are left alone so
-  // dragging one clip does not cut another off mid-note.
+  // An edit re-derives the queue in the same turn, so a start that falls due
+  // before the next tick is not lost. Clips still sounding where they are
+  // drawn are left alone, so dragging one clip does not cut another off
+  // mid-note; a clip that moved gives up the audio it started at its old
+  // position rather than playing twice.
   useEffect(() => {
     const player = clipPlayerRef.current
     if (!player || transportRef.current !== 'playing') return
     for (const key of player.stopPending()) {
       scheduledRef.current.delete(key)
     }
-  }, [clipPlayerRef, clips, clipFades, loopEnabled])
+    for (const [key, start] of scheduledRef.current) {
+      const clip = clips.find((candidate) => candidate.id === start.clipId)
+      if (clip && scheduleKey({ ...start, startSec: clip.startSec }) === key) continue
+      player.stop(key)
+      scheduledRef.current.delete(key)
+    }
+    schedule()
+  }, [clipPlayerRef, clipFades, clips, loopEnabled, schedule])
 
   const changeTransport = useCallback(
     (next: TransportState) => {
