@@ -3,8 +3,11 @@
   "type": "module",
   "devDependencies": {
     "@inertiajs/core": "^3.6.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "jsdom": "^29.1.1",
     "typescript": "^7.0.2",
     "vite": "^8.1.5",
     "vite-plugin-ruby": "^5.2.2",
@@ -17,7 +20,7 @@
   "dependencies": {
     "@inertiajs/react": "^3.6.1",
     "@inertiajs/vite": "^3.6.1",
-    "@kieranklaassen/live-mix": "github:kieranklaassen/live-mix#bff2bbd2145b1f81ce153a4234266bb3b5dc1f76",
+    "@kieranklaassen/live-mix": "github:kieranklaassen/live-mix#43efa324b660348782ea212782ef5fae3e0adee3",
     "@kieranklaassen/swiss-grid": "github:kieranklaassen/swiss-grid",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/typography": "^0.5.20",

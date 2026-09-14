@@ -1,4 +1,5 @@
-import { DevicePanel, Knob } from '@/components/daw'
+import { DeviceFrame, Knob } from '@kieranklaassen/live-mix/react'
+
 import { liveControl } from '@/audio/live-controls'
 import { formatMs, type ContextLatency } from '@/audio/latency'
 import type { RoundTripMeasurement } from '@/audio/latency-probe'
@@ -57,7 +58,7 @@ export default function LiveInputControls({
 }: LiveInputControlsProps) {
   const active = enabled && input.enabled
   return (
-    <DevicePanel
+    <DeviceFrame
       title="Live input"
       powered={input.enabled}
       disabled={!enabled || input.busy}
@@ -156,6 +157,6 @@ export default function LiveInputControls({
           </p>
         )}
       </div>
-    </DevicePanel>
+    </DeviceFrame>
   )
 }

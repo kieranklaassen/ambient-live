@@ -1,8 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react'
 
 import type { ControlSurface } from '@kieranklaassen/live-mix'
+import { DeviceFrame } from '@kieranklaassen/live-mix/react'
 
-import { DevicePanel } from '@/components/daw'
 import type { ContextLatency } from '@/audio/latency'
 import type { RoundTripMeasurement } from '@/audio/latency-probe'
 import Keyboard from './keyboard'
@@ -66,12 +66,12 @@ export default function DeviceStrip({
           <ReverbControls enabled={enabled} settings={settings} onChange={onChange} />
         </div>
         <div className="min-w-0 overflow-x-auto bg-al-raised sg-p-1">
-          <DevicePanel title="Keyboard" data-testid="device-keyboard">
+          <DeviceFrame title="Keyboard" data-testid="device-keyboard">
             <Keyboard enabled={enabled} onNoteOn={onNoteOn} onNoteOff={onNoteOff} compact />
-          </DevicePanel>
+          </DeviceFrame>
         </div>
         <div className="min-w-0 bg-al-raised sg-p-1">
-          <DevicePanel title="MIDI" data-testid="device-midi">
+          <DeviceFrame title="MIDI" data-testid="device-midi">
             <MidiControls
               enabled={enabled}
               surface={surface}
@@ -80,7 +80,7 @@ export default function DeviceStrip({
             >
               <MidiMapPanel enabled={enabled} surface={surface} />
             </MidiControls>
-          </DevicePanel>
+          </DeviceFrame>
         </div>
         <div className="min-w-0 bg-al-raised sg-p-1">
           <LiveInputControls enabled={enabled} {...liveInput} />
