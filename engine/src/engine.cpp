@@ -4,8 +4,7 @@ namespace ambient {
 
 void Engine::init(float sample_rate) {
   sample_rate_ = sample_rate;
-  reverb_mix_ = 0.35f;
-  master_gain_ = 0.8f;
+  gain_ = 1.0f;
   for (SineVoice& voice : voices_) {
     voice = SineVoice();
     voice.init(sample_rate);
@@ -15,7 +14,6 @@ void Engine::init(float sample_rate) {
     in_left_[i] = 0.0f;
     in_right_[i] = 0.0f;
   }
-  reverb_.init(sample_rate);
 }
 
 SineVoice* Engine::find_voice(int note_id) {
@@ -58,53 +56,33 @@ void Engine::note_off(int note_id) {
 
 void Engine::set_param(Param param, float value) {
   switch (param) {
-    case Param::kReverbMix:
-      if (value < 0.0f) value = 0.0f;
-      if (value > 1.0f) value = 1.0f;
-      reverb_mix_ = value;
-      break;
-    case Param::kReverbDecay:
-      reverb_.set_decay(value);
-      break;
-    case Param::kReverbDamping:
-      reverb_.set_damping(value);
-      break;
-    case Param::kReverbPredelayMs:
-      reverb_.set_predelay_ms(value);
-      break;
-    case Param::kMasterGain:
+    case Param::kGain:
       if (value < 0.0f) value = 0.0f;
       if (value > 2.0f) value = 2.0f;
-      master_gain_ = value;
+      gain_ = value;
       break;
   }
 }
 
 void Engine::process(int frames) {
   if (frames > kMaxBlockFrames) frames = kMaxBlockFrames;
-  const float dry_gain = 1.0f - reverb_mix_;
 
   for (int i = 0; i < frames; ++i) {
-    float dry_left = in_left_[i];
-    float dry_right = in_right_[i];
+    float left = in_left_[i];
+    float right = in_right_[i];
     // Consumed once: the host writes the next block from scratch.
     in_left_[i] = 0.0f;
     in_right_[i] = 0.0f;
 
     for (SineVoice& voice : voices_) {
       const float value = voice.render();
-      dry_left += value;
-      dry_right += value;
+      left += value;
+      right += value;
     }
-    sample_.render(&dry_left, &dry_right);
+    sample_.render(&left, &right);
 
-    float wet_left = 0.0f;
-    float wet_right = 0.0f;
-    reverb_.process((dry_left + dry_right) * 0.5f, &wet_left, &wet_right);
-
-    out_left_[i] = master_gain_ * (dry_left * dry_gain + wet_left * reverb_mix_);
-    out_right_[i] =
-        master_gain_ * (dry_right * dry_gain + wet_right * reverb_mix_);
+    out_left_[i] = gain_ * left;
+    out_right_[i] = gain_ * right;
   }
 }
 

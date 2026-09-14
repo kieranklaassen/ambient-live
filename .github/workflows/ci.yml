@@ -77,6 +77,17 @@ jobs:
           node-version: 22
           cache: npm
 
+      # @kieranklaassen/live-mix is a private github: dependency until it is
+      # published; npm ci needs git access. LIVE_MIX_NPM_TOKEN is a classic PAT
+      # with `repo` (and `read:packages` for the registry later).
+      - name: Authenticate git for the private live-mix dependency
+        run: |
+          git config --global url."https://x-access-token:${LIVE_MIX_NPM_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git config --global --add url."https://x-access-token:${LIVE_MIX_NPM_TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
+          git config --global --add url."https://x-access-token:${LIVE_MIX_NPM_TOKEN}@github.com/".insteadOf "git@github.com:"
+        env:
+          LIVE_MIX_NPM_TOKEN: ${{ secrets.LIVE_MIX_NPM_TOKEN }}
+
       - name: Install JS dependencies
         run: npm ci
 
@@ -119,6 +130,17 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      # @kieranklaassen/live-mix is a private github: dependency until it is
+      # published; npm ci needs git access. LIVE_MIX_NPM_TOKEN is a classic PAT
+      # with `repo` (and `read:packages` for the registry later).
+      - name: Authenticate git for the private live-mix dependency
+        run: |
+          git config --global url."https://x-access-token:${LIVE_MIX_NPM_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git config --global --add url."https://x-access-token:${LIVE_MIX_NPM_TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
+          git config --global --add url."https://x-access-token:${LIVE_MIX_NPM_TOKEN}@github.com/".insteadOf "git@github.com:"
+        env:
+          LIVE_MIX_NPM_TOKEN: ${{ secrets.LIVE_MIX_NPM_TOKEN }}
 
       - name: Install JS dependencies
         run: npm ci

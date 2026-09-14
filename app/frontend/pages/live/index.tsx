@@ -1,9 +1,9 @@
 import { Head, router } from '@inertiajs/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
-import { AudioEngine, type LoadedSample, type ParamId } from '@/audio/audio-engine'
-import { ClipPlayer } from '@/audio/clip-player'
-import type { WaveformPeaks } from '@/audio/waveform'
+import type { WaveformPeaks } from '@kieranklaassen/live-mix'
+
+import { LiveEngine, type LoadedSample } from '@/audio/live-engine'
 import DeviceStrip from './device-strip'
 import type { ShortcutAction } from './keymap'
 import { revokeLocalSampleUrls } from './local-folder'
@@ -26,7 +26,7 @@ interface LiveProps {
 }
 
 export default function Live({ samples }: LiveProps) {
-  const engineRef = useRef<AudioEngine | null>(null)
+  const engineRef = useRef<LiveEngine | null>(null)
   const [started, setStarted] = useState(false)
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
@@ -57,14 +57,13 @@ export default function Live({ samples }: LiveProps) {
   const clipFades = useMemo(() => effectiveFades(regions), [regions])
 
   const sampleLoadMutexRef = useRef(Promise.resolve())
-  const clipPlayerRef = useRef<ClipPlayer | null>(null)
   const regionsRef = useRef(regions)
   const localSamplesRef = useRef(localSamples)
   regionsRef.current = regions
   localSamplesRef.current = localSamples
 
-  const { transport, transportRef, playheadSec, changeTransport, seek, resetSchedule } =
-    useClipTransport({ engineRef, clipPlayerRef, clips: regions, clipFades, loopEnabled })
+  const { transport, transportRef, playheadSec, changeTransport, seek, resetSchedule, adoptEngine } =
+    useClipTransport({ engineRef, started, clips: regions, clipFades, loopEnabled })
 
   useEffect(() => () => {
     revokeLocalSampleUrls(localSamplesRef.current)
@@ -75,9 +74,9 @@ export default function Live({ samples }: LiveProps) {
     setStarting(true)
     setStartError(null)
     try {
-      const engine = await AudioEngine.start()
+      const engine = await LiveEngine.start()
       engineRef.current = engine
-      clipPlayerRef.current = new ClipPlayer(engine)
+      adoptEngine(engine)
       setStarted(true)
     } catch (error) {
       setStartError(error instanceof Error ? error.message : String(error))
@@ -102,8 +101,6 @@ export default function Live({ samples }: LiveProps) {
 
   useEffect(
     () => () => {
-      clipPlayerRef.current?.stopAll()
-      clipPlayerRef.current = null
       void engineRef.current?.close()
       engineRef.current = null
     },
@@ -144,9 +141,12 @@ export default function Live({ samples }: LiveProps) {
     [acquireNote],
   )
 
-  function changeSetting(field: keyof ReverbSettings, param: ParamId, value: number) {
+  function changeSetting(field: keyof ReverbSettings, value: number) {
     setSettings((previous) => ({ ...previous, [field]: value }))
-    engineRef.current?.setParam(param, value)
+    const engine = engineRef.current
+    if (!engine) return
+    if (field === 'masterGain') engine.setMasterGain(value)
+    else engine.setReverbParam(field, value)
   }
 
   const setRegionDuration = useCallback((regionId: string, sourceDurationSec: number) => {
@@ -185,7 +185,10 @@ export default function Live({ samples }: LiveProps) {
         throw new Error(`Sample fetch failed (${response.status})`)
       }
       const loaded = await engine.loadSample(sampleId, await response.arrayBuffer())
-      setPeaksBySampleId((previous) => new Map(previous).set(sampleId, loaded.peaks))
+      if (loaded.peaks) {
+        const peaks = loaded.peaks
+        setPeaksBySampleId((previous) => new Map(previous).set(sampleId, peaks))
+      }
       return loaded
     } finally {
       releaseMutex()

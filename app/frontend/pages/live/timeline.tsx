@@ -1,6 +1,6 @@
 import { useRef, type CSSProperties, type DragEvent, type MouseEvent } from 'react'
 
-import type { WaveformPeaks } from '@/audio/waveform'
+import type { WaveformPeaks } from '@kieranklaassen/live-mix'
 import { readSampleDragData, type SampleDragPayload } from './sample-drag'
 import TimelineClip from './timeline-clip'
 import type { ClipFades } from './timeline-clips'

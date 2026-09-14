@@ -1,6 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
 
-import type { ParamId } from '@/audio/audio-engine'
 import { DevicePanel } from '@/components/daw'
 import Keyboard from './keyboard'
 import MidiControls from './midi-controls'
@@ -9,7 +8,7 @@ import ReverbControls, { MasterControls, type ReverbSettings } from './reverb-co
 interface DeviceStripProps {
   enabled: boolean
   settings: ReverbSettings
-  onChange: (field: keyof ReverbSettings, param: ParamId, value: number) => void
+  onChange: (field: keyof ReverbSettings, value: number) => void
   onNoteOn: (noteId: number, frequency: number) => void
   onMidiNoteOn: (noteId: number, frequency: number, gain: number) => void
   onNoteOff: (noteId: number) => void

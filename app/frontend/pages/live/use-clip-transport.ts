@@ -1,87 +1,35 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 
-import type { AudioEngine } from '@/audio/audio-engine'
-import type { ClipPlayer } from '@/audio/clip-player'
-import { clipsInWindow } from './clip-schedule'
+import { Transport, type TransportChange } from '@kieranklaassen/live-mix'
+
+import { LOOP_LENGTH_SEC, type LiveEngine } from '@/audio/live-engine'
+import { regionsToClips } from './regions-to-clips'
 import type { TransportState } from './timeline'
 import type { ClipFades } from './timeline-clips'
-import { LOOP_LENGTH_SEC, advancePlayhead, type SampleRegion } from './timeline-model'
-
-/** How far ahead of the audio clock clip starts are handed to the player. */
-const SCHEDULE_LOOKAHEAD_SEC = 0.2
-const SCHEDULE_TICK_MS = 40
-
-interface TransportAnchor {
-  /** Audio-clock time the transport was pinned at. */
-  contextTime: number
-  /** Playhead position at that moment. */
-  playheadSec: number
-  /** Loop pass the anchor started on. */
-  iteration: number
-}
-
-/** A clip start already handed to the player. */
-interface ScheduledStart {
-  clipId: string
-  /** Loop pass the start belongs to. */
-  iteration: number
-  /** Where on the timeline the clip stood when it was scheduled. */
-  startSec: number
-}
-
-/**
- * Dedupe key for a clip start. The timeline position is part of it, so moving
- * a clip schedules its new position even within the same loop pass.
- */
-function scheduleKey(start: ScheduledStart): string {
-  return `${start.clipId}:${start.iteration}:${start.startSec.toFixed(3)}`
-}
-
-interface TransportPosition {
-  playheadSec: number
-  iteration: number
-  /** True when the loop is off and the playhead has run off the end. */
-  finished: boolean
-}
-
-/** Where the playhead is now, derived from the audio clock rather than accumulated frames. */
-function positionFromAnchor(
-  anchor: TransportAnchor,
-  contextTime: number,
-  loopEnabled: boolean,
-): TransportPosition {
-  const raw = anchor.playheadSec + (contextTime - anchor.contextTime)
-  if (!loopEnabled) {
-    return {
-      playheadSec: Math.min(raw, LOOP_LENGTH_SEC),
-      iteration: anchor.iteration,
-      finished: raw >= LOOP_LENGTH_SEC,
-    }
-  }
-  const passes = Math.floor(raw / LOOP_LENGTH_SEC)
-  return {
-    playheadSec: raw - passes * LOOP_LENGTH_SEC,
-    iteration: anchor.iteration + passes,
-    finished: false,
-  }
-}
+import type { SampleRegion } from './timeline-model'
 
 interface UseClipTransportOptions {
-  engineRef: RefObject<AudioEngine | null>
-  clipPlayerRef: RefObject<ClipPlayer | null>
+  engineRef: RefObject<LiveEngine | null>
+  /** Flips when the engine exists; refs do not re-render, this does. */
+  started: boolean
   clips: readonly SampleRegion[]
   clipFades: ReadonlyMap<string, ClipFades>
   loopEnabled: boolean
 }
 
 /**
- * Runs the timeline: moves the playhead and hands clips to the player before
- * they are due. While the engine exists the audio clock is authoritative, so
- * the drawn playhead and the scheduled audio cannot drift apart.
+ * Runs the timeline over the engine's transport: moves the drawn playhead and
+ * keeps the clip track in step with the regions. Transport logic (anchor,
+ * loop passes, lookahead scheduling, catch-up, re-derive on edit) lives in
+ * the library; this hook is a subscription plus the React state around it.
+ *
+ * Before audio has started there is nothing to play, so a wall-clock
+ * transport keeps the playhead moving; when the engine starts, the audio-clock
+ * transport picks the timeline up from where that one is.
  */
 export function useClipTransport({
   engineRef,
-  clipPlayerRef,
+  started,
   clips,
   clipFades,
   loopEnabled,
@@ -89,205 +37,131 @@ export function useClipTransport({
   const [transport, setTransport] = useState<TransportState>('stopped')
   const [playheadSec, setPlayheadSec] = useState(0)
 
-  // Where the transport was pinned to the audio clock. Null until it runs.
-  const anchorRef = useRef<TransportAnchor | null>(null)
-  // Loop passes are numbered across anchors so a re-pin cannot reuse a number.
-  const nextIterationRef = useRef(0)
-  // Clip starts already handed to the player, by their schedule key.
-  const scheduledRef = useRef(new Map<string, ScheduledStart>())
-  const clipsRef = useRef(clips)
-  const clipFadesRef = useRef(clipFades)
-  const playheadRef = useRef(playheadSec)
+  // Wall-clock transport for the pre-audio playhead; the engine's replaces it.
+  const wallTransportRef = useRef<Transport | null>(null)
+  if (wallTransportRef.current === null) {
+    wallTransportRef.current = new Transport({
+      now: () => performance.now() / 1000,
+      loop: { enabled: loopEnabled, lengthSec: LOOP_LENGTH_SEC },
+    })
+  }
   const transportRef = useRef(transport)
-  const loopEnabledRef = useRef(loopEnabled)
-  // Keep the frame and timer readers current without an extra effect tick.
-  clipsRef.current = clips
-  clipFadesRef.current = clipFades
   transportRef.current = transport
-  loopEnabledRef.current = loopEnabled
 
-  /**
-   * The anchor is created on demand rather than at transport change, so audio
-   * started after Play still picks the timeline up from where it is.
-   */
-  const anchorAt = useCallback((engine: AudioEngine): TransportAnchor => {
-    const existing = anchorRef.current
-    if (existing) return existing
-    const created: TransportAnchor = {
-      contextTime: engine.currentTime,
-      playheadSec: playheadRef.current,
-      iteration: nextIterationRef.current++,
+  const activeTransport = useCallback((): Transport => {
+    const engine = engineRef.current
+    return engine ? engine.engine.transport : (wallTransportRef.current as Transport)
+  }, [engineRef])
+
+  // Mirror transport state changes (including the scheduler's pause-at-end)
+  // into React. Subscribes to whichever transport is active.
+  useEffect(() => {
+    const target = activeTransport()
+    const onChange = (change: TransportChange) => {
+      transportRef.current = change.state
+      setTransport(change.state)
+      if (change.reason === 'stop' || change.reason === 'seek' || change.reason === 'end') {
+        setPlayheadSec(Math.round(change.position.positionSec * 100) / 100)
+      }
     }
-    anchorRef.current = created
-    return created
-  }, [])
+    return target.onChange(onChange)
+  }, [activeTransport, started])
 
-  /** Drops every clip start still in the queue and re-pins the transport to now. */
-  const resetSchedule = useCallback(() => {
-    clipPlayerRef.current?.stopAll()
-    scheduledRef.current.clear()
-    anchorRef.current = null
-  }, [clipPlayerRef])
+  // Hand the engine the timeline: regions (with overlap-derived fades) become
+  // clips on the clip track; the library re-derives its queue in the same turn.
+  useEffect(() => {
+    const engine = engineRef.current
+    if (!engine) return
+    engine.clips.clips.set(regionsToClips(clips, clipFades))
+  }, [engineRef, started, clips, clipFades])
 
-  // Drawn playhead. Before audio has started there is nothing to play, so
-  // frame deltas are enough to keep the line moving.
+  useEffect(() => {
+    activeTransport().setLoop({ enabled: loopEnabled, lengthSec: LOOP_LENGTH_SEC })
+  }, [activeTransport, loopEnabled, started])
+
+  // Drawn playhead: read the position off the active transport each frame.
   useEffect(() => {
     if (transport !== 'playing') return
     let frame = 0
-    let lastTs: number | null = null
-
-    const draw = (next: number) => {
-      playheadRef.current = next
-      // Quantize to the 0.01s readout so steady frames skip the re-render.
-      const quantized = Math.round(next * 100) / 100
-      setPlayheadSec((previous) => (previous === quantized ? previous : quantized))
-    }
-
-    // Running off the end with loop off pauses where it stopped, and drops the
-    // anchor so resuming picks up from there rather than from the old pin.
-    const pauseAtEnd = () => {
-      transportRef.current = 'paused'
-      setTransport('paused')
-      resetSchedule()
-    }
-
-    const tick = (ts: number) => {
+    const tick = () => {
       if (transportRef.current !== 'playing') return
-      const engine = engineRef.current
-      if (engine) {
-        const position = positionFromAnchor(
-          anchorAt(engine),
-          engine.currentTime,
-          loopEnabledRef.current,
-        )
-        draw(position.playheadSec)
-        if (position.finished) {
-          pauseAtEnd()
-          return
-        }
-      } else if (lastTs != null) {
-        const deltaSec = Math.min((ts - lastTs) / 1000, 0.1)
-        const unwrapped = playheadRef.current + deltaSec
-        if (!loopEnabledRef.current && unwrapped >= LOOP_LENGTH_SEC) {
-          draw(LOOP_LENGTH_SEC)
-          pauseAtEnd()
-          return
-        }
-        draw(
-          loopEnabledRef.current
-            ? advancePlayhead(playheadRef.current, deltaSec, LOOP_LENGTH_SEC)
-            : unwrapped,
-        )
+      const position = activeTransport().position()
+      // Quantize to the 0.01s readout so steady frames skip the re-render.
+      const quantized = Math.round(position.positionSec * 100) / 100
+      setPlayheadSec((previous) => (previous === quantized ? previous : quantized))
+      if (position.finished) {
+        // Loop off and the wall-clock transport ran off the end: pause where
+        // it stopped (the engine's scheduler does this itself).
+        if (!engineRef.current) activeTransport().pause()
+        return
       }
-      lastTs = ts
       frame = requestAnimationFrame(tick)
     }
-
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [anchorAt, engineRef, resetSchedule, transport])
+  }, [activeTransport, engineRef, transport])
 
-  /** Hands the player every clip start due within the lookahead window. */
-  const schedule = useCallback(() => {
-    const engine = engineRef.current
-    const player = clipPlayerRef.current
-    if (!engine || !player) return
+  /**
+   * When audio starts, carry the wall-clock transport's state over to the
+   * engine's transport so audio started after Play picks the timeline up
+   * from where it is.
+   */
+  const adoptEngine = useCallback(
+    (engine: LiveEngine) => {
+      const wall = wallTransportRef.current as Transport
+      const position = wall.position()
+      const wasPlaying = wall.state === 'playing'
+      wall.stop()
+      const target = engine.engine.transport
+      target.setLoop({ enabled: loopEnabled, lengthSec: LOOP_LENGTH_SEC })
+      target.seek(position.positionSec)
+      engine.clips.clips.set(regionsToClips(clips, clipFades))
+      if (wasPlaying) target.start()
+      else if (transportRef.current === 'paused') target.pause()
+    },
+    [clipFades, clips, loopEnabled],
+  )
 
-    const now = engine.currentTime
-    const loop = loopEnabledRef.current
-    const position = positionFromAnchor(anchorAt(engine), now, loop)
-    if (position.finished) return
-
-    const due = clipsInWindow({
-      clips: clipsRef.current,
-      playheadSec: position.playheadSec,
-      lookaheadSec: SCHEDULE_LOOKAHEAD_SEC,
-      iteration: position.iteration,
-      loopEnabled: loop,
-    })
-
-    for (const entry of due) {
-      const clip = clipsRef.current.find((candidate) => candidate.id === entry.clipId)
-      const loaded = clip ? engine.sample(clip.sampleId) : undefined
-      if (!clip || !loaded) continue
-      const start: ScheduledStart = {
-        clipId: entry.clipId,
-        iteration: entry.iteration,
-        startSec: clip.startSec,
-      }
-      const key = scheduleKey(start)
-      if (scheduledRef.current.has(key)) continue
-      const fades = clipFadesRef.current.get(clip.id) ?? clip
-      player.play(
-        key,
-        {
-          buffer: loaded.audioBuffer,
-          offsetSec: clip.offsetSec,
-          durationSec: clip.durationSec,
-          fadeInSec: fades.fadeInSec,
-          fadeOutSec: fades.fadeOutSec,
-        },
-        now + entry.startsInSec,
-      )
-      scheduledRef.current.set(key, start)
-    }
-
-    for (const [key, start] of scheduledRef.current) {
-      if (start.iteration < position.iteration) scheduledRef.current.delete(key)
-    }
-  }, [anchorAt, clipPlayerRef, engineRef])
-
-  // Runs on a timer rather than a frame so a backgrounded tab keeps playing.
-  useEffect(() => {
-    if (transport !== 'playing') return
-    schedule()
-    const timer = window.setInterval(schedule, SCHEDULE_TICK_MS)
-    return () => window.clearInterval(timer)
-  }, [schedule, transport])
-
-  // An edit re-derives the queue in the same turn, so a start that falls due
-  // before the next tick is not lost. Clips still sounding where they are
-  // drawn are left alone, so dragging one clip does not cut another off
-  // mid-note; a clip that moved gives up the audio it started at its old
-  // position rather than playing twice.
-  useEffect(() => {
-    const player = clipPlayerRef.current
-    if (!player || transportRef.current !== 'playing') return
-    for (const key of player.stopPending()) {
-      scheduledRef.current.delete(key)
-    }
-    for (const [key, start] of scheduledRef.current) {
-      const clip = clips.find((candidate) => candidate.id === start.clipId)
-      if (clip && scheduleKey({ ...start, startSec: clip.startSec }) === key) continue
-      player.stop(key)
-      scheduledRef.current.delete(key)
-    }
-    schedule()
-  }, [clipPlayerRef, clipFades, clips, loopEnabled, schedule])
+  /** Drops every clip start still in the queue and re-derives it from the anchor. */
+  const resetSchedule = useCallback(() => {
+    engineRef.current?.engine.scheduler.refresh()
+  }, [engineRef])
 
   const changeTransport = useCallback(
     (next: TransportState) => {
-      // Sync the ref before the re-render so the scheduler sees Stop/Pause
+      const target = activeTransport()
+      // Sync the ref before the re-render so shortcut handlers see Stop/Pause
       // immediately instead of one tick late.
       transportRef.current = next
-      if (next === 'stopped') {
-        setPlayheadSec(0)
-        playheadRef.current = 0
+      switch (next) {
+        case 'playing':
+          target.start()
+          break
+        case 'paused':
+          target.pause()
+          break
+        case 'stopped':
+          // Ableton Stop: the transport returns to 0 itself.
+          target.stop()
+          setPlayheadSec(0)
+          break
+        default: {
+          const _exhaustive: never = next
+          return _exhaustive
+        }
       }
       setTransport(next)
-      resetSchedule()
     },
-    [resetSchedule],
+    [activeTransport],
   )
 
   const seek = useCallback(
     (timeSec: number) => {
+      activeTransport().seek(timeSec)
       setPlayheadSec(timeSec)
-      playheadRef.current = timeSec
-      resetSchedule()
     },
-    [resetSchedule],
+    [activeTransport],
   )
 
-  return { transport, transportRef, playheadSec, changeTransport, seek, resetSchedule }
+  return { transport, transportRef, playheadSec, changeTransport, seek, resetSchedule, adoptEngine }
 }

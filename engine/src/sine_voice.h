@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-#include "dsp_util.h"
+#include <dsp_util.h>
 
 namespace ambient {
 
@@ -56,7 +56,7 @@ struct SineVoice {
       case Stage::kSustain:
         break;
       case Stage::kRelease:
-        envelope = flush_denormal(envelope * release_coefficient);
+        envelope = livemix::flush_denormal(envelope * release_coefficient);
         if (envelope == 0.0f) {
           stage = Stage::kIdle;
           note_id = -1;

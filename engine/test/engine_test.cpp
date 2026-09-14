@@ -1,5 +1,7 @@
-// Native proof for the DSP core (plan U3). Compiled with the system C++
-// compiler by script/test-engine; no WASM or browser involved.
+// Native proof for the instrument core (plan U3). Compiled with the system
+// C++ compiler by script/test-engine; no WASM or browser involved. The plate
+// reverb and its tail/decay/stability/denormal tests moved to the live-mix
+// library (cpp/devices/dattorro, cpp/test/dattorro_test.cpp).
 
 #include <algorithm>
 #include <cmath>
@@ -59,7 +61,6 @@ float render_seconds(ambient::Engine& engine, float seconds,
 void test_sine_pitch_and_silence() {
   ambient::Engine& engine = g_test_engine;
   engine.init(kSampleRate);
-  engine.set_param(ambient::Param::kReverbMix, 0.0f);
   engine.note_on(1, 440.0f, 0.5f);
 
   // Skip the attack, then count positive-going zero crossings over 1s.
@@ -80,17 +81,16 @@ void test_sine_pitch_and_silence() {
   EXPECT(crossings > 430 && crossings < 450,
          "440Hz sine should cross zero upward ~440 times per second");
 
-  // Release: after note_off plus release time, dry output returns to silence.
+  // Release: after note_off plus release time, output returns to silence.
   engine.note_off(1);
   render_seconds(engine, 2.0f);
   const float peak = render_seconds(engine, 0.5f);
-  EXPECT(peak == 0.0f, "dry output should be exactly silent after release");
+  EXPECT(peak == 0.0f, "output should be exactly silent after release");
 }
 
 void test_attack_has_no_click() {
   ambient::Engine& engine = g_test_engine;
   engine.init(kSampleRate);
-  engine.set_param(ambient::Param::kReverbMix, 0.0f);
   engine.note_on(1, 440.0f, 1.0f);
   engine.process(8);
   const float* left = engine.out_left();
@@ -99,96 +99,42 @@ void test_attack_has_no_click() {
   EXPECT(std::fabs(left[7]) < 0.2f, "early attack should still be quiet");
 }
 
-void test_reverb_tail_exists_and_decays() {
+void test_gain_param_scales_output() {
   ambient::Engine& engine = g_test_engine;
   engine.init(kSampleRate);
-  engine.set_param(ambient::Param::kReverbMix, 1.0f);
-  engine.set_param(ambient::Param::kReverbDecay, 0.7f);
-  engine.set_param(ambient::Param::kReverbPredelayMs, 1.0f);
-
-  // Impulse via a very short note burst.
-  engine.note_on(1, 880.0f, 1.0f);
-  render_seconds(engine, 0.05f);
-  engine.note_off(1);
-
-  float rms_early = 0.0f;
-  render_seconds(engine, 0.5f, &rms_early);
-  float rms_mid = 0.0f;
-  render_seconds(engine, 0.5f, &rms_mid);
-  render_seconds(engine, 1.5f);
-  float rms_late = 0.0f;
-  render_seconds(engine, 0.5f, &rms_late);
-
-  EXPECT(rms_early > 1.0e-5f, "reverb tail should carry energy at 0.5s");
-  EXPECT(rms_mid > 0.0f, "reverb tail should still be audible after 1s");
-  EXPECT(rms_late < rms_early, "reverb tail should decay over time");
-}
-
-void test_decay_parameter_lengthens_tail() {
-  const auto tail_rms_at_2s = [](float decay) {
-    ambient::Engine& engine = g_test_engine;
-    engine.init(kSampleRate);
-    engine.set_param(ambient::Param::kReverbMix, 1.0f);
-    engine.set_param(ambient::Param::kReverbDecay, decay);
-    engine.set_param(ambient::Param::kReverbPredelayMs, 1.0f);
-    engine.note_on(1, 440.0f, 1.0f);
-    render_seconds(engine, 0.05f);
-    engine.note_off(1);
-    render_seconds(engine, 2.0f);
-    float rms = 0.0f;
-    render_seconds(engine, 0.25f, &rms);
-    return rms;
-  };
-
-  const float long_tail = tail_rms_at_2s(0.9f);
-  const float short_tail = tail_rms_at_2s(0.3f);
-  EXPECT(long_tail > short_tail * 4.0f,
-         "decay=0.9 should leave much more tail at 2s than decay=0.3");
+  for (int i = 0; i < kBlock; ++i) {
+    engine.in_left()[i] = 0.5f;
+    engine.in_right()[i] = 0.5f;
+  }
+  engine.set_param(ambient::Param::kGain, 0.5f);
+  engine.process(kBlock);
+  EXPECT(std::fabs(engine.out_left()[0] - 0.25f) < 1.0e-6f,
+         "gain should scale the dry sum");
+  engine.set_param(ambient::Param::kGain, 5.0f);
+  for (int i = 0; i < kBlock; ++i) engine.in_left()[i] = 0.5f;
+  engine.process(kBlock);
+  EXPECT(std::fabs(engine.out_left()[0] - 1.0f) < 1.0e-6f,
+         "gain should clamp at 2");
 }
 
 void test_stability_under_load() {
   ambient::Engine& engine = g_test_engine;
   engine.init(kSampleRate);
-  engine.set_param(ambient::Param::kReverbMix, 0.5f);
-  engine.set_param(ambient::Param::kReverbDecay, 0.95f);
-
   for (int i = 0; i < 8; ++i) {
     engine.note_on(i, 110.0f * (i + 1), 0.4f);
   }
   float peak = render_seconds(engine, 10.0f);
   for (int i = 0; i < 8; ++i) engine.note_off(i);
-  const float peak_tail = render_seconds(engine, 20.0f);
+  const float peak_tail = render_seconds(engine, 5.0f);
   if (peak_tail > peak) peak = peak_tail;
 
-  EXPECT(peak < 4.0f, "30s of processing should stay bounded (no blowup)");
+  EXPECT(peak < 4.0f, "15s of processing should stay bounded (no blowup)");
   EXPECT(peak < 1.0e8f, "no NaN/inf during sustained processing");
-}
-
-void test_denormals_flush_to_silence() {
-  ambient::Engine& engine = g_test_engine;
-  engine.init(kSampleRate);
-  engine.set_param(ambient::Param::kReverbMix, 1.0f);
-  engine.set_param(ambient::Param::kReverbDecay, 0.5f);
-  engine.note_on(1, 440.0f, 1.0f);
-  render_seconds(engine, 0.05f);
-  engine.note_off(1);
-
-  // After 10s of silence, no state may sit in the denormal range (the guard
-  // invariant: values are exactly 0 or above the flush threshold) ...
-  render_seconds(engine, 10.0f);
-  EXPECT(!engine.reverb().has_denormal_state(),
-         "no reverb state should linger in the denormal range");
-  // ... and shortly after, everything has flushed to exact zero.
-  render_seconds(engine, 2.0f);
-  EXPECT(engine.reverb().is_silent_state(),
-         "reverb state should flush to exact zero after a long silence");
 }
 
 void test_sample_playback() {
   ambient::Engine& engine = g_test_engine;
   engine.init(kSampleRate);
-  engine.set_param(ambient::Param::kReverbMix, 0.0f);
-  engine.set_param(ambient::Param::kMasterGain, 1.0f);
 
   const int frames = 1000;
   float* buffer = engine.sample_data();
@@ -224,11 +170,9 @@ void test_sample_playback() {
   EXPECT(residual == 0.0f, "output should be silent after sample ends");
 }
 
-void test_input_bus_reaches_output_and_reverb() {
+void test_input_bus_passes_through_and_clears() {
   ambient::Engine& engine = g_test_engine;
   engine.init(kSampleRate);
-  engine.set_param(ambient::Param::kReverbMix, 0.0f);
-  engine.set_param(ambient::Param::kMasterGain, 1.0f);
 
   for (int i = 0; i < kBlock; ++i) {
     engine.in_left()[i] = 0.25f;
@@ -252,22 +196,6 @@ void test_input_bus_reaches_output_and_reverb() {
     residual += std::fabs(engine.out_left()[i]);
   }
   EXPECT(residual == 0.0f, "input bus should clear between blocks");
-
-  // The same signal through the reverb leaves a tail after the input stops.
-  engine.init(kSampleRate);
-  engine.set_param(ambient::Param::kReverbMix, 1.0f);
-  engine.set_param(ambient::Param::kReverbDecay, 0.7f);
-  engine.set_param(ambient::Param::kMasterGain, 1.0f);
-  for (int block = 0; block < 8; ++block) {
-    for (int i = 0; i < kBlock; ++i) {
-      engine.in_left()[i] = 0.5f;
-      engine.in_right()[i] = 0.5f;
-    }
-    engine.process(kBlock);
-  }
-  float tail_rms = 0.0f;
-  render_seconds(engine, 0.25f, &tail_rms);
-  EXPECT(tail_rms > 1.0e-5f, "input bus should feed the reverb tail");
 }
 
 }  // namespace
@@ -275,12 +203,10 @@ void test_input_bus_reaches_output_and_reverb() {
 int main() {
   test_sine_pitch_and_silence();
   test_attack_has_no_click();
-  test_reverb_tail_exists_and_decays();
-  test_decay_parameter_lengthens_tail();
+  test_gain_param_scales_output();
   test_stability_under_load();
-  test_denormals_flush_to_silence();
   test_sample_playback();
-  test_input_bus_reaches_output_and_reverb();
+  test_input_bus_passes_through_and_clears();
 
   if (g_failures == 0) {
     std::printf("engine tests: all passed\n");

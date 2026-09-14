@@ -1,15 +1,24 @@
 #!/bin/bash
-# Compiles and runs the native DSP test harness (plan U3 verification).
+# Compiles and runs the native instrument test harness (plan U3 verification).
+# dsp_util.h comes from the live-mix package (npm install first).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+live_mix="node_modules/@kieranklaassen/live-mix/cpp/common"
+if [ ! -f "$live_mix/dsp_util.h" ]; then
+  echo "live-mix headers not found at $live_mix — run npm install first." >&2
+  exit 1
+fi
 
 out_dir="tmp/engine-test"
 mkdir -p "$out_dir"
 
-c++ -std=c++17 -O2 -fno-exceptions -fno-rtti -Wall \
+CXX="${CXX:-c++}"
+
+"$CXX" -std=c++17 -O2 -fno-exceptions -fno-rtti -Wall \
+  -I "$live_mix" \
   engine/test/engine_test.cpp \
   engine/src/engine.cpp \
-  engine/src/dattorro_reverb.cpp \
   -o "$out_dir/engine_test"
 
 "$out_dir/engine_test"
