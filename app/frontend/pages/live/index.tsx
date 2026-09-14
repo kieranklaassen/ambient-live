@@ -3,12 +3,24 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 
 import type { WaveformPeaks } from '@kieranklaassen/live-mix'
 
-import { LiveEngine, type LoadedSample } from '@/audio/live-engine'
+import {
+  clampControlValue,
+  controlTarget,
+  controlValueFromUnit,
+  defaultControlValues,
+  type ControlTargetId,
+  type ControlValues,
+} from '@/audio/control-targets'
+import type { ContextLatency } from '@/audio/latency'
+import type { RoundTripMeasurement } from '@/audio/latency-probe'
+import { LIVE_INPUT_CONSTRAINTS, LiveEngine, type LoadedSample } from '@/audio/live-engine'
+import type { ControlChange } from '@/audio/midi-map'
 import DeviceStrip from './device-strip'
 import type { ShortcutAction } from './keymap'
+import { type LiveInputState } from './live-input-controls'
 import { revokeLocalSampleUrls } from './local-folder'
 import PaneSplitter from './pane-splitter'
-import { DEFAULT_REVERB_SETTINGS, type ReverbSettings } from './reverb-controls'
+import { REVERB_SETTING_TARGETS, reverbSettingsFrom, type ReverbSettings } from './reverb-controls'
 import SampleBrowser from './sample-browser'
 import { isAllowedSampleUrl, type SampleDragPayload } from './sample-drag'
 import type { SampleItem } from './sample-library'
@@ -18,11 +30,37 @@ import { applySourceDuration, effectiveFades } from './timeline-clips'
 import { createSampleRegion, type SampleRegion } from './timeline-model'
 import { useClipTransport } from './use-clip-transport'
 import { useLiveShortcuts } from './use-live-shortcuts'
+import { useMidiMap } from './use-midi-map'
 import { useWorkstationPanes } from './use-workstation-panes'
 import { paneVars } from './workstation-layout'
 
 interface LiveProps {
   samples: SampleItem[]
+}
+
+/** The capture side of the live input; its level, pan and monitor live in `controls`. */
+interface CaptureState {
+  enabled: boolean
+  busy: boolean
+  error: string | null
+  deviceLabel: string | null
+  trackLatencySec: number | null
+}
+
+const IDLE_CAPTURE: CaptureState = {
+  enabled: false,
+  busy: false,
+  error: null,
+  deviceLabel: null,
+  trackLatencySec: null,
+}
+
+/** Chrome reports the capture buffer as `latency`; the DOM typings do not know it yet. */
+function trackLatencySec(track: MediaStreamTrack): number | null {
+  const settings = track.getSettings() as MediaTrackSettings & { latency?: number }
+  return typeof settings.latency === 'number' && Number.isFinite(settings.latency)
+    ? settings.latency
+    : null
 }
 
 export default function Live({ samples }: LiveProps) {
@@ -31,7 +69,15 @@ export default function Live({ samples }: LiveProps) {
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const [level, setLevel] = useState(0)
-  const [settings, setSettings] = useState<ReverbSettings>(DEFAULT_REVERB_SETTINGS)
+  const [controls, setControls] = useState<ControlValues>(defaultControlValues)
+  const controlsRef = useRef(controls)
+  controlsRef.current = controls
+  const settings = useMemo(() => reverbSettingsFrom(controls), [controls])
+  const [capture, setCapture] = useState<CaptureState>(IDLE_CAPTURE)
+  const [latency, setLatency] = useState<ContextLatency | null>(null)
+  const [measurement, setMeasurement] = useState<RoundTripMeasurement | null>(null)
+  const [measuring, setMeasuring] = useState(false)
+  const [measureError, setMeasureError] = useState<string | null>(null)
   const [playingSampleId, setPlayingSampleId] = useState<number | null>(null)
   const [loadingSampleId, setLoadingSampleId] = useState<number | null>(null)
   const [regions, setRegions] = useState<SampleRegion[]>([])
@@ -77,6 +123,7 @@ export default function Live({ samples }: LiveProps) {
       const engine = await LiveEngine.start()
       engineRef.current = engine
       adoptEngine(engine)
+      setLatency(engine.latency())
       setStarted(true)
     } catch (error) {
       setStartError(error instanceof Error ? error.message : String(error))
@@ -141,12 +188,109 @@ export default function Live({ samples }: LiveProps) {
     [acquireNote],
   )
 
+  /** The one path every control takes — knobs, faders, MIDI — into state and the engine. */
+  const changeControl = useCallback((id: ControlTargetId, value: number) => {
+    const clamped = clampControlValue(controlTarget(id), value)
+    controlsRef.current = { ...controlsRef.current, [id]: clamped }
+    setControls(controlsRef.current)
+    engineRef.current?.applyControl(id, clamped)
+  }, [])
+
   function changeSetting(field: keyof ReverbSettings, value: number) {
-    setSettings((previous) => ({ ...previous, [field]: value }))
+    changeControl(REVERB_SETTING_TARGETS[field], value)
+  }
+
+  const handleControlChange = useCallback(
+    (change: ControlChange) => {
+      const spec = controlTarget(change.target)
+      switch (change.action) {
+        case 'set':
+          changeControl(change.target, controlValueFromUnit(spec, change.unit))
+          return
+        case 'toggle':
+          changeControl(change.target, controlsRef.current[change.target] >= 0.5 ? 0 : 1)
+          return
+        default: {
+          const _exhaustive: never = change
+          return _exhaustive
+        }
+      }
+    },
+    [changeControl],
+  )
+
+  const midiMap = useMidiMap({ onChange: handleControlChange })
+
+  // Live input -----------------------------------------------------------------
+
+  const liveInput: LiveInputState = useMemo(
+    () => ({
+      ...capture,
+      monitor: controls['input.monitor'] >= 0.5,
+      level: controls['input.level'],
+      pan: controls['input.pan'],
+    }),
+    [capture, controls],
+  )
+
+  async function enableLiveInput() {
     const engine = engineRef.current
-    if (!engine) return
-    if (field === 'masterGain') engine.setMasterGain(value)
-    else engine.setReverbParam(field, value)
+    if (!engine || capture.busy) return
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCapture({ ...IDLE_CAPTURE, error: 'No audio input in this browser.' })
+      return
+    }
+    setCapture((previous) => ({ ...previous, busy: true, error: null }))
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(LIVE_INPUT_CONSTRAINTS)
+      const current = engineRef.current
+      if (!current) {
+        for (const track of stream.getTracks()) track.stop()
+        return
+      }
+      current.enableLiveInput(stream)
+      const [track] = stream.getAudioTracks()
+      track?.addEventListener('ended', () => {
+        // The device went away (unplugged, revoked): mirror that in the UI.
+        engineRef.current?.disableLiveInput()
+        setCapture(IDLE_CAPTURE)
+      })
+      setCapture({
+        enabled: true,
+        busy: false,
+        error: null,
+        deviceLabel: track?.label || 'Input',
+        trackLatencySec: track ? trackLatencySec(track) : null,
+      })
+      setLatency(current.latency())
+    } catch (error) {
+      setCapture({
+        ...IDLE_CAPTURE,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  function disableLiveInput() {
+    engineRef.current?.disableLiveInput()
+    setCapture(IDLE_CAPTURE)
+    setMeasurement(null)
+  }
+
+  async function measureLatency() {
+    const engine = engineRef.current
+    if (!engine || measuring) return
+    setMeasuring(true)
+    setMeasureError(null)
+    try {
+      const result = await engine.measureRoundTripLatency()
+      setMeasurement(result)
+      setLatency(result.context)
+    } catch (error) {
+      setMeasureError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setMeasuring(false)
+    }
   }
 
   const setRegionDuration = useCallback((regionId: string, sourceDurationSec: number) => {
@@ -430,6 +574,23 @@ export default function Live({ samples }: LiveProps) {
         onNoteOn={noteOn}
         onMidiNoteOn={acquireNote}
         onNoteOff={releaseNote}
+        onMidiEvent={midiMap.dispatch}
+        midiMap={midiMap}
+        liveInput={{
+          input: liveInput,
+          latency,
+          measurement,
+          measuring,
+          measureError,
+          onInputEnabledChange: (enabled) => {
+            if (enabled) void enableLiveInput()
+            else disableLiveInput()
+          },
+          onMonitorChange: (monitor) => changeControl('input.monitor', monitor ? 1 : 0),
+          onLevelChange: (value) => changeControl('input.level', value),
+          onPanChange: (value) => changeControl('input.pan', value),
+          onMeasure: () => void measureLatency(),
+        }}
       >
         <PaneSplitter
           orientation="horizontal"

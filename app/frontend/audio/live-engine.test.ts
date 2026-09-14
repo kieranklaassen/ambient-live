@@ -14,6 +14,7 @@ import {
   asAudioContext,
   createMockContext,
   type MockAudioContext,
+  type MockAudioNode,
 } from '@kieranklaassen/live-mix/testing'
 import { DATTORRO_PARAMS, type WorkletNodeFactory } from '@kieranklaassen/live-mix/dsp'
 
@@ -166,5 +167,126 @@ describe('LiveEngine graph', () => {
     await live.close()
     expect(ctx.state).toBe('closed')
     expect(ctx.workletNodes[0].disconnectCalls.count).toBeGreaterThanOrEqual(1)
+  })
+})
+
+function mockStream() {
+  const stopped: string[] = []
+  const track = (id: string) => ({ id, stop: () => void stopped.push(id) })
+  const tracks = [track('mic')]
+  const stream = {
+    getAudioTracks: () => tracks,
+    getTracks: () => tracks,
+  } as unknown as MediaStream
+  return { stream, stopped }
+}
+
+describe('LiveEngine live input', () => {
+  it('creates no nodes until a stream is attached, then routes it into the master mix', async () => {
+    const { ctx, live } = await build()
+    const nodesBefore = ctx.allNodes().length
+    expect(live.liveInputEnabled).toBe(false)
+    expect(live.input.name).toBe('input')
+
+    const { stream } = mockStream()
+    live.enableLiveInput(stream)
+    expect(live.liveInputEnabled).toBe(true)
+    const source = ctx.streamSources[0]
+    expect(source.mediaStream).toBe(stream)
+    const master = ctx.gains[0]
+    expect(source.isConnectedTo(live.input.gainNode as unknown as MockAudioNode)).toBe(true)
+    expect(source.reaches(master)).toBe(true)
+    expect(source.reaches(ctx.destination)).toBe(true)
+    expect(ctx.allNodes().length).toBeGreaterThan(nodesBefore)
+  })
+
+  it('monitoring mutes and unmutes the input strip gate without touching the source', async () => {
+    const { ctx, live } = await build()
+    live.enableLiveInput(mockStream().stream)
+    expect(live.liveInputMonitor).toBe(true)
+    ctx.currentTime = 3
+    live.setLiveInputMonitor(false)
+    expect(live.liveInputMonitor).toBe(false)
+    expect(live.input.strip.gate.gain.lastEvent('setTargetAtTime')?.args).toEqual([0, 3, 0.005])
+    live.setLiveInputMonitor(true)
+    expect(live.input.strip.gate.gain.lastEvent('setTargetAtTime')?.args).toEqual([1, 3, 0.005])
+    expect(ctx.streamSources[0].reaches(ctx.gains[0])).toBe(true)
+  })
+
+  it('replacing or disabling the input stops the previous capture tracks', async () => {
+    const { ctx, live } = await build()
+    const first = mockStream()
+    const second = mockStream()
+    live.enableLiveInput(first.stream)
+    live.enableLiveInput(second.stream)
+    expect(first.stopped).toEqual(['mic'])
+    expect(ctx.streamSources).toHaveLength(2)
+    live.disableLiveInput()
+    expect(second.stopped).toEqual(['mic'])
+    expect(live.liveInputEnabled).toBe(false)
+    expect(ctx.streamSources[1].disconnectCalls.count).toBeGreaterThan(0)
+  })
+
+  it('close releases the capture device', async () => {
+    const { live } = await build()
+    const { stream, stopped } = mockStream()
+    live.enableLiveInput(stream)
+    await live.close()
+    expect(stopped).toEqual(['mic'])
+  })
+
+  it('reports the context latency figures and refuses to measure without an input', async () => {
+    const { live } = await build()
+    expect(live.latency()).toEqual({ sampleRate: 48000, baseLatencySec: 0, outputLatencySec: 0 })
+    await expect(live.measureRoundTripLatency()).rejects.toThrow(/Enable the live input/)
+  })
+})
+
+describe('LiveEngine.applyControl', () => {
+  it('routes reverb and master controls to the existing paths', async () => {
+    const { ctx, live } = await build()
+    const [, plateNode] = ctx.workletNodes
+    live.applyControl('reverb.mix', 0.5)
+    live.applyControl('reverb.decay', 0.8)
+    live.applyControl('reverb.damping', 0.2)
+    live.applyControl('reverb.predelayMs', 10)
+    expect(plateNode.port.posted.calls.map((c) => c[0])).toEqual([
+      { type: 'set-param', paramId: DATTORRO_PARAMS.mix.id, value: 0.5 },
+      { type: 'set-param', paramId: DATTORRO_PARAMS.decay.id, value: 0.8 },
+      { type: 'set-param', paramId: DATTORRO_PARAMS.damping.id, value: 0.2 },
+      { type: 'set-param', paramId: DATTORRO_PARAMS.predelayMs.id, value: 10 },
+    ])
+    ctx.currentTime = 1
+    live.applyControl('master.gain', 0.6)
+    expect(ctx.gains[0].gain.lastEvent('setTargetAtTime')?.args).toEqual([0.6, 1, 0.005])
+  })
+
+  it('ramps strip levels and pans on the synth, clips and input strips', async () => {
+    const { ctx, live } = await build()
+    ctx.currentTime = 4
+    live.applyControl('synth.level', 0.7)
+    expect(live.synth.strip.level).toBe(0.7)
+    expect(live.synth.strip.fader.gain.lastEvent('setTargetAtTime')?.args).toEqual([0.7, 4, 0.005])
+    live.applyControl('synth.pan', -0.5)
+    expect(live.synth.strip.pan).toBe(-0.5)
+    expect(live.synth.strip.panner.pan.lastEvent('setTargetAtTime')?.args).toEqual([-0.5, 4, 0.005])
+    live.applyControl('clips.level', 1.2)
+    live.applyControl('clips.pan', 0.25)
+    expect(live.clips.strip.level).toBe(1.2)
+    expect(live.clips.strip.pan).toBe(0.25)
+    live.applyControl('input.level', 0.3)
+    live.applyControl('input.pan', 1)
+    expect(live.input.strip.level).toBe(0.3)
+    expect(live.input.strip.pan).toBe(1)
+    // The synth still reaches the output through its materialised strip.
+    expect(ctx.workletNodes[0].reaches(ctx.destination)).toBe(true)
+  })
+
+  it('treats input.monitor as a switch', async () => {
+    const { live } = await build()
+    live.applyControl('input.monitor', 0)
+    expect(live.liveInputMonitor).toBe(false)
+    live.applyControl('input.monitor', 1)
+    expect(live.liveInputMonitor).toBe(true)
   })
 })
