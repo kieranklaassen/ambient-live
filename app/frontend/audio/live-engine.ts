@@ -23,7 +23,6 @@ import {
   type WasmDeviceOptions,
 } from '@kieranklaassen/live-mix/dsp'
 
-import { controlTarget, type ControlTargetId } from './control-targets'
 import {
   createInstrument,
   loadSampleIntoInstrument,
@@ -46,7 +45,7 @@ export const LOOP_LENGTH_SEC = 32
 /** How far ahead of the audio clock clip starts are handed to the graph. */
 export const SCHEDULE_LOOKAHEAD_SEC = 0.2
 export const SCHEDULE_TICK_MS = 40
-export const DEFAULT_MASTER_GAIN = controlTarget('master.gain').default
+export const DEFAULT_MASTER_GAIN = 0.8
 
 /**
  * Microphone/instrument capture for monitoring: the browser's voice processing
@@ -142,55 +141,6 @@ export class LiveEngine {
 
   setMasterGain(value: number): void {
     this.engine.master.setLevel(value)
-  }
-
-  /**
-   * Apply a mapped control (MIDI or otherwise). Every path ramps: WASM params
-   * ramp inside the device host, strip moves are `setTargetAtTime` at 5 ms.
-   */
-  applyControl(id: ControlTargetId, value: number): void {
-    switch (id) {
-      case 'reverb.mix':
-        this.setReverbParam('mix', value)
-        return
-      case 'reverb.decay':
-        this.setReverbParam('decay', value)
-        return
-      case 'reverb.damping':
-        this.setReverbParam('damping', value)
-        return
-      case 'reverb.predelayMs':
-        this.setReverbParam('predelayMs', value)
-        return
-      case 'master.gain':
-        this.setMasterGain(value)
-        return
-      case 'synth.level':
-        this.synth.strip.setLevel(value)
-        return
-      case 'synth.pan':
-        this.synth.strip.setPan(value)
-        return
-      case 'clips.level':
-        this.clips.strip.setLevel(value)
-        return
-      case 'clips.pan':
-        this.clips.strip.setPan(value)
-        return
-      case 'input.level':
-        this.input.strip.setLevel(value)
-        return
-      case 'input.pan':
-        this.input.strip.setPan(value)
-        return
-      case 'input.monitor':
-        this.setLiveInputMonitor(value >= 0.5)
-        return
-      default: {
-        const _exhaustive: never = id
-        return _exhaustive
-      }
-    }
   }
 
   // Live input ---------------------------------------------------------------

@@ -1,16 +1,23 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 
-import { midiToFrequency, parseMidiEvent, type MidiEvent } from '@/audio/midi'
+import {
+  MidiInput,
+  controlEventsFromMidi,
+  isMapped,
+  isWebMidiSupported,
+  type ControlSurface,
+  type MidiAccessLike,
+  type MidiMessage,
+} from '@kieranklaassen/live-mix'
+
+import { midiToFrequency, velocityToGain } from '@/audio/midi'
 
 interface MidiControlsProps {
   enabled: boolean
+  /** Takes every control event from the selected port; a note it maps or learns never reaches the synth. */
+  surface: ControlSurface
   onNoteOn: (noteId: number, frequency: number, gain: number) => void
   onNoteOff: (noteId: number) => void
-  /**
-   * Every parsed message goes here first (CCs, and notes before they reach
-   * the synth); returning true consumes it — a mapped or learned control.
-   */
-  onMidiEvent?: (event: MidiEvent) => boolean
   /** Rendered under the input picker once MIDI is connected (the mapping table). */
   children?: ReactNode
 }
@@ -27,6 +34,12 @@ interface MidiInputOption {
   name: string
 }
 
+/** The port the library listens on, and how to let go of it. */
+interface AttachedPort {
+  id: string
+  detach: () => void
+}
+
 function listInputs(access: MIDIAccess): MidiInputOption[] {
   return Array.from(access.inputs.values())
     .filter((input) => input.state === 'connected')
@@ -36,38 +49,51 @@ function listInputs(access: MIDIAccess): MidiInputOption[] {
     }))
 }
 
-function isActiveConnected(input: MIDIInput | null): boolean {
-  return input !== null && input.state === 'connected'
+/**
+ * The access as the library sees it. `MidiInput` owns `onstatechange` on the
+ * object it is given, so the picker keeps the real one and forwards. The
+ * library reads only `id`, `name`, `manufacturer`, `state` and
+ * `onmidimessage` from a port, which the browser's objects provide.
+ */
+function bridgeAccess(access: MIDIAccess, onStateChange: () => void): MidiAccessLike {
+  const bridge: MidiAccessLike = {
+    inputs: access.inputs as unknown as MidiAccessLike['inputs'],
+    onstatechange: null,
+  }
+  access.onstatechange = () => {
+    onStateChange()
+    bridge.onstatechange?.({})
+  }
+  return bridge
 }
 
 export default function MidiControls({
   enabled,
+  surface,
   onNoteOn,
   onNoteOff,
-  onMidiEvent,
   children,
 }: MidiControlsProps) {
   const [status, setStatus] = useState<MidiStatus>(() =>
-    typeof navigator !== 'undefined' && 'requestMIDIAccess' in navigator
-      ? { kind: 'idle' }
-      : { kind: 'unsupported' },
+    isWebMidiSupported() ? { kind: 'idle' } : { kind: 'unsupported' },
   )
   const [inputs, setInputs] = useState<MidiInputOption[]>([])
   const [selectedId, setSelectedId] = useState('')
   const accessRef = useRef<MIDIAccess | null>(null)
-  const activeInputRef = useRef<MIDIInput | null>(null)
+  const bridgeRef = useRef<MidiAccessLike | null>(null)
+  const portRef = useRef<AttachedPort | null>(null)
   const activeNotesRef = useRef<Set<number>>(new Set())
+  const surfaceRef = useRef(surface)
   const onNoteOnRef = useRef(onNoteOn)
   const onNoteOffRef = useRef(onNoteOff)
-  const onMidiEventRef = useRef(onMidiEvent)
   const mountedRef = useRef(true)
   const refreshInputsRef = useRef<(access: MIDIAccess) => void>(() => {})
 
   useEffect(() => {
+    surfaceRef.current = surface
     onNoteOnRef.current = onNoteOn
     onNoteOffRef.current = onNoteOff
-    onMidiEventRef.current = onMidiEvent
-  }, [onNoteOn, onNoteOff, onMidiEvent])
+  }, [surface, onNoteOn, onNoteOff])
 
   const releaseAll = useCallback(() => {
     for (const note of activeNotesRef.current) {
@@ -76,56 +102,69 @@ export default function MidiControls({
     activeNotesRef.current.clear()
   }, [])
 
-  const handleMessage = useCallback((event: MIDIMessageEvent) => {
-    if (!event.data) return
-    const parsed = parseMidiEvent(event.data)
-    if (!parsed) return
-
-    switch (parsed.type) {
-      case 'cc':
-        onMidiEventRef.current?.(parsed)
-        return
-      case 'note-on':
-        // A mapped (or being-learned) note is a control, not a key.
-        if (onMidiEventRef.current?.(parsed)) return
+  // Notes for the synth. Control events reach the surface through
+  // `surface.connect`, which fires after this for the same message.
+  const handleMessage = useCallback((message: MidiMessage) => {
+    switch (message.type) {
+      case 'note-on': {
+        // A mapped note — or one an armed learn is about to bind — is a control, not a key.
+        const current = surfaceRef.current
+        const taken =
+          current.learning !== null ||
+          controlEventsFromMidi(message).some((event) => isMapped(current.table, event))
+        if (taken) return
         // Skip duplicate note-ons so the shared refcount only sees one hold per pitch.
-        if (activeNotesRef.current.has(parsed.note)) return
-        activeNotesRef.current.add(parsed.note)
-        onNoteOnRef.current(parsed.note, midiToFrequency(parsed.note), parsed.gain)
+        if (activeNotesRef.current.has(message.note)) return
+        activeNotesRef.current.add(message.note)
+        onNoteOnRef.current(
+          message.note,
+          midiToFrequency(message.note),
+          velocityToGain(message.velocity),
+        )
         return
+      }
       case 'note-off':
         // A sounding note always releases, even if it was mapped mid-hold; only
         // release notes this MIDI path actually started (avoid silencing keyboard holds).
-        if (activeNotesRef.current.delete(parsed.note)) {
-          onNoteOffRef.current(parsed.note)
-          return
-        }
-        onMidiEventRef.current?.(parsed)
+        if (activeNotesRef.current.delete(message.note)) onNoteOffRef.current(message.note)
+        return
+      case 'cc':
+      case 'pitchbend':
+      case 'aftertouch':
+      case 'program':
         return
       default: {
-        const _exhaustive: never = parsed
+        const _exhaustive: never = message
         return _exhaustive
       }
     }
   }, [])
 
   const detachInput = useCallback(() => {
-    const input = activeInputRef.current
-    if (input) {
-      input.onmidimessage = null
-      activeInputRef.current = null
-    }
+    portRef.current?.detach()
+    portRef.current = null
     releaseAll()
   }, [releaseAll])
 
   const attachInput = useCallback(
-    (access: MIDIAccess, id: string): boolean => {
+    (access: MIDIAccess, bridge: MidiAccessLike, id: string): boolean => {
       detachInput()
       if (!id) return false
-      const input = access.inputs.get(id)
-      if (!input || input.state !== 'connected') return false
-      input.onmidimessage = handleMessage
-      activeInputRef.current = input
+      const port = access.inputs.get(id)
+      if (!port || port.state !== 'connected') return false
+      const input = new MidiInput({ requestAccess: () => Promise.resolve(bridge), ports: [id] })
+      const disconnect = surfaceRef.current.connect(input)
+      const unsubscribe = input.onMessage(handleMessage)
+      const opened = input.open()
+      portRef.current = {
+        id,
+        detach: () => {
+          unsubscribe()
+          disconnect()
+          // `open` settles in a microtask; closing after it cannot leave a port attached.
+          void opened.then(() => input.close())
+        },
+      }
       return true
     },
     [detachInput, handleMessage],
@@ -139,7 +178,8 @@ export default function MidiControls({
         if (current && next.some((entry) => entry.id === current)) return current
         return ''
       })
-      if (!isActiveConnected(activeInputRef.current)) detachInput()
+      const attached = portRef.current
+      if (attached && !next.some((entry) => entry.id === attached.id)) detachInput()
     },
     [detachInput],
   )
@@ -156,12 +196,13 @@ export default function MidiControls({
       if (access) access.onstatechange = null
       detachInput()
       accessRef.current = null
+      bridgeRef.current = null
     }
   }, [detachInput])
 
   async function connectMidi() {
     if (!enabled || status.kind === 'unsupported' || status.kind === 'connecting') return
-    if (!('requestMIDIAccess' in navigator)) {
+    if (!isWebMidiSupported()) {
       setStatus({ kind: 'unsupported' })
       return
     }
@@ -171,10 +212,10 @@ export default function MidiControls({
       const access = await navigator.requestMIDIAccess({ sysex: false })
       if (!mountedRef.current) return
       accessRef.current = access
-      access.onstatechange = () => {
+      bridgeRef.current = bridgeAccess(access, () => {
         if (!mountedRef.current || accessRef.current !== access) return
         refreshInputsRef.current(access)
-      }
+      })
       refreshInputs(access)
       setStatus({ kind: 'ready' })
     } catch (error) {
@@ -186,13 +227,14 @@ export default function MidiControls({
 
   function selectInput(id: string) {
     const access = accessRef.current
-    if (!access) return
+    const bridge = bridgeRef.current
+    if (!access || !bridge) return
     if (!id) {
       detachInput()
       setSelectedId('')
       return
     }
-    if (!attachInput(access, id)) {
+    if (!attachInput(access, bridge, id)) {
       setSelectedId('')
       return
     }

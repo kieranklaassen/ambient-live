@@ -1,5 +1,5 @@
 import { DevicePanel, Knob } from '@/components/daw'
-import { controlTarget } from '@/audio/control-targets'
+import { liveControl } from '@/audio/live-controls'
 import { formatMs, type ContextLatency } from '@/audio/latency'
 import type { RoundTripMeasurement } from '@/audio/latency-probe'
 
@@ -32,8 +32,8 @@ interface LiveInputControlsProps {
   onMeasure: () => void
 }
 
-const LEVEL = controlTarget('input.level')
-const PAN = controlTarget('input.pan')
+const LEVEL = liveControl('input.level')
+const PAN = liveControl('input.pan')
 
 function roundTripText(measurement: RoundTripMeasurement | null): string {
   if (!measurement) return 'not measured'

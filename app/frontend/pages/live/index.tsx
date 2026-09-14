@@ -1,20 +1,23 @@
 import { Head, router } from '@inertiajs/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
-import type { WaveformPeaks } from '@kieranklaassen/live-mix'
+import type { StorageLike, WaveformPeaks } from '@kieranklaassen/live-mix'
 
-import {
-  clampControlValue,
-  controlTarget,
-  controlValueFromUnit,
-  defaultControlValues,
-  type ControlTargetId,
-  type ControlValues,
-} from '@/audio/control-targets'
 import type { ContextLatency } from '@/audio/latency'
 import type { RoundTripMeasurement } from '@/audio/latency-probe'
+import {
+  MIDI_MAP_STORAGE_KEY,
+  clampLiveControl,
+  createLiveControlSurface,
+  defaultLiveControls,
+  liveControl,
+  liveControlFor,
+  liveControlFromUnit,
+  unitFromLiveControl,
+  type LiveControlId,
+  type LiveControlValues,
+} from '@/audio/live-controls'
 import { LIVE_INPUT_CONSTRAINTS, LiveEngine, type LoadedSample } from '@/audio/live-engine'
-import type { ControlChange } from '@/audio/midi-map'
 import DeviceStrip from './device-strip'
 import type { ShortcutAction } from './keymap'
 import { type LiveInputState } from './live-input-controls'
@@ -30,7 +33,6 @@ import { applySourceDuration, effectiveFades } from './timeline-clips'
 import { createSampleRegion, type SampleRegion } from './timeline-model'
 import { useClipTransport } from './use-clip-transport'
 import { useLiveShortcuts } from './use-live-shortcuts'
-import { useMidiMap } from './use-midi-map'
 import { useWorkstationPanes } from './use-workstation-panes'
 import { paneVars } from './workstation-layout'
 
@@ -63,13 +65,25 @@ function trackLatencySec(track: MediaStreamTrack): number | null {
     : null
 }
 
+function browserStorage(): StorageLike | null {
+  try {
+    return typeof window !== 'undefined' ? window.localStorage : null
+  } catch {
+    // Storage access can throw in sandboxed frames; the map then lives for the session only.
+    return null
+  }
+}
+
 export default function Live({ samples }: LiveProps) {
   const engineRef = useRef<LiveEngine | null>(null)
+  // One surface for the page's life: it holds the mapping table before audio
+  // starts and binds to the engine once there is one.
+  const [surface] = useState(() => createLiveControlSurface(() => engineRef.current))
   const [started, setStarted] = useState(false)
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const [level, setLevel] = useState(0)
-  const [controls, setControls] = useState<ControlValues>(defaultControlValues)
+  const [controls, setControls] = useState<LiveControlValues>(defaultLiveControls)
   const controlsRef = useRef(controls)
   controlsRef.current = controls
   const settings = useMemo(() => reverbSettingsFrom(controls), [controls])
@@ -200,38 +214,43 @@ export default function Live({ samples }: LiveProps) {
     [acquireNote],
   )
 
-  /** The one path every control takes — knobs, faders, MIDI — into state and the engine. */
-  const changeControl = useCallback((id: ControlTargetId, value: number) => {
-    const clamped = clampControlValue(controlTarget(id), value)
-    controlsRef.current = { ...controlsRef.current, [id]: clamped }
-    setControls(controlsRef.current)
-    engineRef.current?.applyControl(id, clamped)
-  }, [])
+  /** The one path every on-screen control takes — knobs, faders — into state and, through the surface, the engine. */
+  const changeControl = useCallback(
+    (id: LiveControlId, value: number) => {
+      const spec = liveControl(id)
+      const clamped = clampLiveControl(spec, value)
+      controlsRef.current = { ...controlsRef.current, [id]: clamped }
+      setControls(controlsRef.current)
+      surface.set(spec.target, unitFromLiveControl(spec, clamped))
+    },
+    [surface],
+  )
 
   function changeSetting(field: keyof ReverbSettings, value: number) {
     changeControl(REVERB_SETTING_TARGETS[field], value)
   }
 
-  const handleControlChange = useCallback(
-    (change: ControlChange) => {
-      const spec = controlTarget(change.target)
-      switch (change.action) {
-        case 'set':
-          changeControl(change.target, controlValueFromUnit(spec, change.unit))
-          return
-        case 'toggle':
-          changeControl(change.target, controlsRef.current[change.target] >= 0.5 ? 0 : 1)
-          return
-        default: {
-          const _exhaustive: never = change
-          return _exhaustive
-        }
-      }
-    },
-    [changeControl],
+  // Stored mappings load now (U27's format-1 table included) and every edit saves.
+  useEffect(
+    () => surface.persist(browserStorage(), { key: MIDI_MAP_STORAGE_KEY }),
+    [surface],
   )
 
-  const midiMap = useMidiMap({ onChange: handleControlChange })
+  // A controller writes to the engine through the surface; the knobs follow.
+  useEffect(
+    () =>
+      surface.onChange((change) => {
+        if (change.type !== 'applied' || change.unit === null) return
+        const spec = liveControlFor(change.change.target)
+        if (!spec) return
+        controlsRef.current = {
+          ...controlsRef.current,
+          [spec.id]: liveControlFromUnit(spec, change.unit),
+        }
+        setControls(controlsRef.current)
+      }),
+    [surface],
+  )
 
   // Live input -----------------------------------------------------------------
 
@@ -586,8 +605,7 @@ export default function Live({ samples }: LiveProps) {
         onNoteOn={noteOn}
         onMidiNoteOn={acquireNote}
         onNoteOff={releaseNote}
-        onMidiEvent={midiMap.dispatch}
-        midiMap={midiMap}
+        surface={surface}
         liveInput={{
           input: liveInput,
           latency,
