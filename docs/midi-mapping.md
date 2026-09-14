@@ -41,14 +41,19 @@ value at the target's normalised 0 and 1.
 
 A mapping onto a control always carries the control's span as its `output`
 (`liveControlOutput`): a CC at 127 lands on the knob's maximum (decay 0.99,
-not the plate's 1.0) and a MIDI switch at ≥ 64 turns monitoring on. The
-surface enforces this on every table change (`withLiveControlSemantics`), so
-learned and migrated bindings alike get it.
+not the plate's 1.0) and a MIDI switch at ≥ 64 turns monitoring on. Its mode
+follows its source as in U27 (`liveControlMode`: a pad toggles the monitor and
+sets anything else from velocity; a CC sets) — the library would keep the old
+mode across a re-learn. The surface enforces both on every table change
+(`withLiveControlSemantics`), so learned and migrated bindings alike get it.
 
-`createLiveControlSurface(() => engine)` builds the surface. Targets resolve
-against whatever engine the callback returns at dispatch time, so the surface
-exists — and holds the stored table — before audio starts; nothing answers
-until then.
+`createLiveControlSurface(() => engine, { storage })` builds the surface.
+Targets resolve against whatever engine the callback returns at dispatch time,
+so the surface exists — and holds the stored table — before audio starts;
+nothing answers until then. Persistence is the library's `loadMappingTable` /
+`saveMappingTable` (what `surface.persist` composes) placed around the
+semantics pass, so what is saved is always the normalised table and a loaded
+table is normalised in memory without being written back.
 
 Adding a control: add a spec to `LIVE_CONTROLS` (and its id to
 `LiveControlId`). The knobs, the map panel and the stored-table migration

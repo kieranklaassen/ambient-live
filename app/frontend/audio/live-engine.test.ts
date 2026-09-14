@@ -306,10 +306,9 @@ const setParams = (node: MockAudioWorkletNode) =>
 
 async function buildWithSurface(stored = U27_STORED_TABLE) {
   const { ctx, live } = await build()
-  const { storage, data } = memoryStorage({ [MIDI_MAP_STORAGE_KEY]: stored })
-  const surface = createLiveControlSurface(() => live)
-  const stopPersisting = surface.persist(storage, { key: MIDI_MAP_STORAGE_KEY })
-  return { ctx, live, surface, storage, data, stopPersisting }
+  const { storage, data } = memoryStorage(stored ? { [MIDI_MAP_STORAGE_KEY]: stored } : {})
+  const surface = createLiveControlSurface(() => live, { storage })
+  return { ctx, live, surface, storage, data }
 }
 
 describe('ControlSurface over the LiveEngine', () => {
@@ -378,8 +377,9 @@ describe('ControlSurface over the LiveEngine', () => {
   })
 
   it('learns with U27 semantics: a pad on the monitor toggles it, a knob covers the knob range', async () => {
-    const { live, surface } = await buildWithSurface('')
+    const { live, surface, data } = await buildWithSurface('')
     expect(surface.table).toEqual([])
+    expect(data.has(MIDI_MAP_STORAGE_KEY)).toBe(false)
     const monitor = liveControl('input.monitor').target
     const decay = liveControl('reverb.decay').target
 
@@ -432,9 +432,20 @@ describe('ControlSurface over the LiveEngine', () => {
     surface.handle(cc(20, 127))
     expect(live.liveInputMonitor).toBe(true)
 
-    // `Clear all` empties the table.
+    // What was saved is the normalised table, not the one learn produced.
+    expect(parseMappingTable(data.get(MIDI_MAP_STORAGE_KEY))).toEqual(surface.table)
+    expect(JSON.parse(data.get(MIDI_MAP_STORAGE_KEY)!).mappings).toContainEqual(
+      expect.objectContaining({
+        source: { kind: 'cc', channel: 1, controller: 20 },
+        mode: 'set',
+        output: { min: 1, max: 0 },
+      }),
+    )
+
+    // `Clear all` empties the table and removes the key.
     surface.clear()
     expect(surface.table).toEqual([])
+    expect(data.has(MIDI_MAP_STORAGE_KEY)).toBe(false)
   })
 
   it('takes the on-screen controls through the same ramped setters as before', async () => {
@@ -503,11 +514,15 @@ describe('ControlSurface over the LiveEngine', () => {
   })
 
   it('holds the table before audio starts; nothing answers until an engine exists', async () => {
-    const { storage } = memoryStorage({ [MIDI_MAP_STORAGE_KEY]: U27_STORED_TABLE })
+    const { storage, data } = memoryStorage({ [MIDI_MAP_STORAGE_KEY]: U27_STORED_TABLE })
     let live: LiveEngine | null = null
-    const surface = createLiveControlSurface(() => live)
-    surface.persist(storage, { key: MIDI_MAP_STORAGE_KEY })
+    const surface = createLiveControlSurface(() => live, { storage })
     expect(surface.table).toHaveLength(5)
+    expect(surface.mappingFor(liveControl('reverb.decay').target)?.output).toEqual({
+      min: 0,
+      max: 0.99,
+    })
+    expect(JSON.parse(data.get(MIDI_MAP_STORAGE_KEY)!).format).toBe(AMBIENT_LIVE_MIDI_MAP_FORMAT)
     expect(surface.set(liveControl('reverb.mix').target, 1)).toBe(false)
     expect(surface.handle(cc(74, 127))).toMatchObject({ consumed: true, applied: [] })
 

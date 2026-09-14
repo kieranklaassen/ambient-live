@@ -6,7 +6,6 @@ import type { StorageLike, WaveformPeaks } from '@kieranklaassen/live-mix'
 import type { ContextLatency } from '@/audio/latency'
 import type { RoundTripMeasurement } from '@/audio/latency-probe'
 import {
-  MIDI_MAP_STORAGE_KEY,
   clampLiveControl,
   createLiveControlSurface,
   defaultLiveControls,
@@ -76,9 +75,12 @@ function browserStorage(): StorageLike | null {
 
 export default function Live({ samples }: LiveProps) {
   const engineRef = useRef<LiveEngine | null>(null)
-  // One surface for the page's life: it holds the mapping table before audio
-  // starts and binds to the engine once there is one.
-  const [surface] = useState(() => createLiveControlSurface(() => engineRef.current))
+  // One surface for the page's life: it holds the stored mapping table (U27's
+  // format-1 table included) before audio starts and binds to the engine once
+  // there is one; every edit saves.
+  const [surface] = useState(() =>
+    createLiveControlSurface(() => engineRef.current, { storage: browserStorage() }),
+  )
   const [started, setStarted] = useState(false)
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
@@ -229,12 +231,6 @@ export default function Live({ samples }: LiveProps) {
   function changeSetting(field: keyof ReverbSettings, value: number) {
     changeControl(REVERB_SETTING_TARGETS[field], value)
   }
-
-  // Stored mappings load now (U27's format-1 table included) and every edit saves.
-  useEffect(
-    () => surface.persist(browserStorage(), { key: MIDI_MAP_STORAGE_KEY }),
-    [surface],
-  )
 
   // A controller writes to the engine through the surface; the knobs follow.
   useEffect(

@@ -11,12 +11,15 @@ import {
   ambientLiveMidiMapMigration,
   controlTargetKey,
   isBooleanTarget,
+  loadMappingTable,
   resolveStripHost,
+  saveMappingTable,
   type ControlSource,
   type ControlTarget,
   type MappingMode,
   type MappingRange,
   type MappingTable,
+  type StorageLike,
 } from '@kieranklaassen/live-mix'
 import { DATTORRO_PARAMS, type DattorroParamName } from '@kieranklaassen/live-mix/dsp'
 
@@ -233,12 +236,28 @@ export function withLiveControlSemantics(table: MappingTable): MappingTable {
   return changed ? next : table
 }
 
+export interface LiveControlSurfaceOptions {
+  /** Where the table lives between sessions (`localStorage`); null keeps it for the session. */
+  storage?: StorageLike | null
+  key?: string
+}
+
 /**
  * The surface every controller writes through. It resolves targets against
  * whatever engine `live()` returns at dispatch time, so it can exist — and
- * hold a loaded table — before audio starts; nothing answers until then.
+ * hold the stored table — before audio starts; nothing answers until then.
+ *
+ * Persistence is `loadMappingTable` now and `saveMappingTable` on every edit
+ * (what `surface.persist` does), interleaved with the semantics pass: the
+ * loaded table is normalised in memory without being written back, so a U27
+ * format-1 key is rewritten as format 2 on the first edit, and a save always
+ * carries the normalised table.
  */
-export function createLiveControlSurface(live: () => LiveEngine | null): ControlSurface {
+export function createLiveControlSurface(
+  live: () => LiveEngine | null,
+  { storage = null, key = MIDI_MAP_STORAGE_KEY }: LiveControlSurfaceOptions = {},
+): ControlSurface {
+  const migrations = [liveMidiMapMigration]
   const surface = new ControlSurface({
     resolve: {
       strip: (track) => {
@@ -249,12 +268,19 @@ export function createLiveControlSurface(live: () => LiveEngine | null): Control
       device: (id) => (id === REVERB_DEVICE_ID ? live()?.plate : undefined),
     },
     now: () => live()?.currentTime ?? 0,
-    migrations: [liveMidiMapMigration],
+    migrations,
   })
+  const loaded = loadMappingTable(storage, { key, migrations })
+  if (loaded.length > 0) surface.replace(withLiveControlSemantics(loaded))
   surface.onChange((change) => {
     if (change.type !== 'table') return
     const normalized = withLiveControlSemantics(change.table)
-    if (normalized !== change.table) surface.replace(normalized)
+    if (normalized !== change.table) {
+      // Re-emits with the normalised table; that emission is the one saved.
+      surface.replace(normalized)
+      return
+    }
+    saveMappingTable(storage, change.table, { key })
   })
   return surface
 }
