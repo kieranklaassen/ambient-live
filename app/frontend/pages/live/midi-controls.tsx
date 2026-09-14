@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 
-import { midiToFrequency, parseMidiMessage } from '@/audio/midi'
+import { midiToFrequency, parseMidiEvent, type MidiEvent } from '@/audio/midi'
 
 interface MidiControlsProps {
   enabled: boolean
   onNoteOn: (noteId: number, frequency: number, gain: number) => void
   onNoteOff: (noteId: number) => void
+  /**
+   * Every parsed message goes here first (CCs, and notes before they reach
+   * the synth); returning true consumes it — a mapped or learned control.
+   */
+  onMidiEvent?: (event: MidiEvent) => boolean
+  /** Rendered under the input picker once MIDI is connected (the mapping table). */
+  children?: ReactNode
 }
 
 type MidiStatus =
@@ -33,7 +40,13 @@ function isActiveConnected(input: MIDIInput | null): boolean {
   return input !== null && input.state === 'connected'
 }
 
-export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiControlsProps) {
+export default function MidiControls({
+  enabled,
+  onNoteOn,
+  onNoteOff,
+  onMidiEvent,
+  children,
+}: MidiControlsProps) {
   const [status, setStatus] = useState<MidiStatus>(() =>
     typeof navigator !== 'undefined' && 'requestMIDIAccess' in navigator
       ? { kind: 'idle' }
@@ -46,13 +59,15 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
   const activeNotesRef = useRef<Set<number>>(new Set())
   const onNoteOnRef = useRef(onNoteOn)
   const onNoteOffRef = useRef(onNoteOff)
+  const onMidiEventRef = useRef(onMidiEvent)
   const mountedRef = useRef(true)
   const refreshInputsRef = useRef<(access: MIDIAccess) => void>(() => {})
 
   useEffect(() => {
     onNoteOnRef.current = onNoteOn
     onNoteOffRef.current = onNoteOff
-  }, [onNoteOn, onNoteOff])
+    onMidiEventRef.current = onMidiEvent
+  }, [onNoteOn, onNoteOff, onMidiEvent])
 
   const releaseAll = useCallback(() => {
     for (const note of activeNotesRef.current) {
@@ -63,20 +78,35 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
 
   const handleMessage = useCallback((event: MIDIMessageEvent) => {
     if (!event.data) return
-    const parsed = parseMidiMessage(event.data)
+    const parsed = parseMidiEvent(event.data)
     if (!parsed) return
 
-    if (parsed.type === 'note-on') {
-      // Skip duplicate note-ons so the shared refcount only sees one hold per pitch.
-      if (activeNotesRef.current.has(parsed.note)) return
-      activeNotesRef.current.add(parsed.note)
-      onNoteOnRef.current(parsed.note, midiToFrequency(parsed.note), parsed.gain)
-      return
+    switch (parsed.type) {
+      case 'cc':
+        onMidiEventRef.current?.(parsed)
+        return
+      case 'note-on':
+        // A mapped (or being-learned) note is a control, not a key.
+        if (onMidiEventRef.current?.(parsed)) return
+        // Skip duplicate note-ons so the shared refcount only sees one hold per pitch.
+        if (activeNotesRef.current.has(parsed.note)) return
+        activeNotesRef.current.add(parsed.note)
+        onNoteOnRef.current(parsed.note, midiToFrequency(parsed.note), parsed.gain)
+        return
+      case 'note-off':
+        // A sounding note always releases, even if it was mapped mid-hold; only
+        // release notes this MIDI path actually started (avoid silencing keyboard holds).
+        if (activeNotesRef.current.delete(parsed.note)) {
+          onNoteOffRef.current(parsed.note)
+          return
+        }
+        onMidiEventRef.current?.(parsed)
+        return
+      default: {
+        const _exhaustive: never = parsed
+        return _exhaustive
+      }
     }
-
-    // Only release notes this MIDI path actually started (avoid silencing keyboard holds).
-    if (!activeNotesRef.current.delete(parsed.note)) return
-    onNoteOffRef.current(parsed.note)
   }, [])
 
   const detachInput = useCallback(() => {
@@ -218,6 +248,8 @@ export default function MidiControls({ enabled, onNoteOn, onNoteOff }: MidiContr
           )}
         </label>
       )}
+
+      {status.kind === 'ready' && children}
     </div>
   )
 }

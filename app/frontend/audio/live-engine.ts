@@ -6,13 +6,15 @@
 //
 // Signal flow (same sound as the former in-app engine, restructured):
 //   synth (InstrumentTrack) ─┐
-//   timeline clips (AudioTrack) ─┴→ master fader (0.8) → Dattorro plate → meter → destination
+//   timeline clips (AudioTrack) ─┼→ master fader (0.8) → Dattorro plate → meter → destination
+//   live input (LiveInputTrack) ─┘  (getUserMedia, monitoring through the same mix)
 
 import {
   createEngine,
   type AudioTrack,
   type Engine,
   type InstrumentTrack,
+  type LiveInputTrack,
   type LoadedSample,
 } from '@kieranklaassen/live-mix'
 import {
@@ -21,6 +23,7 @@ import {
   type WasmDeviceOptions,
 } from '@kieranklaassen/live-mix/dsp'
 
+import { controlTarget, type ControlTargetId } from './control-targets'
 import {
   createInstrument,
   loadSampleIntoInstrument,
@@ -29,6 +32,12 @@ import {
   type InstrumentDevice,
   type InstrumentParams,
 } from './instrument'
+import { describeContextLatency, type ContextLatency } from './latency'
+import {
+  measureRoundTrip,
+  type MeasureRoundTripOptions,
+  type RoundTripMeasurement,
+} from './latency-probe'
 
 export type { LoadedSample }
 
@@ -37,7 +46,17 @@ export const LOOP_LENGTH_SEC = 32
 /** How far ahead of the audio clock clip starts are handed to the graph. */
 export const SCHEDULE_LOOKAHEAD_SEC = 0.2
 export const SCHEDULE_TICK_MS = 40
-export const DEFAULT_MASTER_GAIN = 0.8
+export const DEFAULT_MASTER_GAIN = controlTarget('master.gain').default
+
+/**
+ * Microphone/instrument capture for monitoring: the browser's voice processing
+ * would colour and delay an instrument, so it is off; the context's
+ * `interactive` hint asks for the smallest output buffer the device allows.
+ */
+export const LIVE_INPUT_CONSTRAINTS: MediaStreamConstraints = {
+  audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  video: false,
+}
 
 export type ReverbParam = 'mix' | 'decay' | 'damping' | 'predelayMs'
 
@@ -52,16 +71,20 @@ export class LiveEngine {
   readonly engine: Engine
   readonly synth: InstrumentTrack
   readonly clips: AudioTrack
+  /** Live input (mic/instrument); node-free until a stream is attached. */
+  readonly input: LiveInputTrack
   readonly plate: DattorroReverb
   private readonly instrument: InstrumentDevice
   // Which sample currently occupies the core's single audition voice.
   private voiceSampleId: number | null = null
+  private inputStream: MediaStream | null = null
 
   private constructor(
     context: AudioContext,
     engine: Engine,
     synth: InstrumentTrack,
     clips: AudioTrack,
+    input: LiveInputTrack,
     plate: DattorroReverb,
     instrument: InstrumentDevice,
   ) {
@@ -69,13 +92,14 @@ export class LiveEngine {
     this.engine = engine
     this.synth = synth
     this.clips = clips
+    this.input = input
     this.plate = plate
     this.instrument = instrument
   }
 
   // Must be called from a user gesture so the AudioContext can start.
   static async start(): Promise<LiveEngine> {
-    const context = new AudioContext()
+    const context = new AudioContext({ latencyHint: 'interactive' })
     await context.resume()
     return LiveEngine.create(context)
   }
@@ -99,8 +123,9 @@ export class LiveEngine {
     const synth = engine.addInstrumentTrack('synth', { device: instrument })
     engine.master.addInsert(plate)
     const clips = engine.addAudioTrack('clips', { lookaheadSec: SCHEDULE_LOOKAHEAD_SEC })
+    const input = engine.addLiveInputTrack('input')
 
-    return new LiveEngine(context, engine, synth, clips, plate, instrument)
+    return new LiveEngine(context, engine, synth, clips, input, plate, instrument)
   }
 
   noteOn(noteId: number, frequency: number, gain = 0.5): void {
@@ -117,6 +142,107 @@ export class LiveEngine {
 
   setMasterGain(value: number): void {
     this.engine.master.setLevel(value)
+  }
+
+  /**
+   * Apply a mapped control (MIDI or otherwise). Every path ramps: WASM params
+   * ramp inside the device host, strip moves are `setTargetAtTime` at 5 ms.
+   */
+  applyControl(id: ControlTargetId, value: number): void {
+    switch (id) {
+      case 'reverb.mix':
+        this.setReverbParam('mix', value)
+        return
+      case 'reverb.decay':
+        this.setReverbParam('decay', value)
+        return
+      case 'reverb.damping':
+        this.setReverbParam('damping', value)
+        return
+      case 'reverb.predelayMs':
+        this.setReverbParam('predelayMs', value)
+        return
+      case 'master.gain':
+        this.setMasterGain(value)
+        return
+      case 'synth.level':
+        this.synth.strip.setLevel(value)
+        return
+      case 'synth.pan':
+        this.synth.strip.setPan(value)
+        return
+      case 'clips.level':
+        this.clips.strip.setLevel(value)
+        return
+      case 'clips.pan':
+        this.clips.strip.setPan(value)
+        return
+      case 'input.level':
+        this.input.strip.setLevel(value)
+        return
+      case 'input.pan':
+        this.input.strip.setPan(value)
+        return
+      case 'input.monitor':
+        this.setLiveInputMonitor(value >= 0.5)
+        return
+      default: {
+        const _exhaustive: never = id
+        return _exhaustive
+      }
+    }
+  }
+
+  // Live input ---------------------------------------------------------------
+
+  /** Route a captured stream into the mix; a second call replaces the first. */
+  enableLiveInput(stream: MediaStream): void {
+    this.stopInputStream()
+    this.inputStream = stream
+    this.input.attach(stream)
+  }
+
+  /** Unwire the live input and release the capture device. */
+  disableLiveInput(): void {
+    this.input.detach()
+    this.stopInputStream()
+  }
+
+  get liveInputEnabled(): boolean {
+    return this.input.source !== null
+  }
+
+  /** Hear the input or not; the strip's gate ramps, so no clicks. */
+  setLiveInputMonitor(enabled: boolean): void {
+    this.input.strip.setMute(!enabled)
+  }
+
+  get liveInputMonitor(): boolean {
+    return !this.input.strip.mute
+  }
+
+  /** What the context reports about its own buffering. */
+  latency(): ContextLatency {
+    return describeContextLatency(this.context)
+  }
+
+  /**
+   * Play a chirp and time its return through the live input (speakers → mic
+   * or a loopback cable). Requires an enabled input.
+   */
+  measureRoundTripLatency(
+    options: Omit<MeasureRoundTripOptions, 'context' | 'input'> = {},
+  ): Promise<RoundTripMeasurement> {
+    const source = this.input.source
+    if (!source) return Promise.reject(new Error('Enable the live input before measuring'))
+    return measureRoundTrip({ context: this.context, input: source, ...options })
+  }
+
+  private stopInputStream(): void {
+    const stream = this.inputStream
+    if (!stream) return
+    this.inputStream = null
+    for (const track of stream.getTracks()) track.stop()
   }
 
   // Decodes an audio file with the browser's decoder and keeps the result:
@@ -162,6 +288,7 @@ export class LiveEngine {
   }
 
   async close(): Promise<void> {
+    this.stopInputStream()
     this.engine.dispose()
     await this.context.close()
   }

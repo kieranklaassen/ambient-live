@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 
+import { controlTarget, type ControlTargetId, type ControlValues } from '@/audio/control-targets'
 import { DevicePanel, Fader, Knob, type ControlUnit } from '@/components/daw'
 
 export interface ReverbSettings {
@@ -10,12 +11,42 @@ export interface ReverbSettings {
   masterGain: number
 }
 
+/** Which control target each setting is: the mapping layer and the knobs share one range. */
+export const REVERB_SETTING_TARGETS: Record<keyof ReverbSettings, ControlTargetId> = {
+  mix: 'reverb.mix',
+  decay: 'reverb.decay',
+  damping: 'reverb.damping',
+  predelayMs: 'reverb.predelayMs',
+  masterGain: 'master.gain',
+}
+
+export function reverbSettingsFrom(controls: ControlValues): ReverbSettings {
+  return {
+    mix: controls['reverb.mix'],
+    decay: controls['reverb.decay'],
+    damping: controls['reverb.damping'],
+    predelayMs: controls['reverb.predelayMs'],
+    masterGain: controls['master.gain'],
+  }
+}
+
 export const DEFAULT_REVERB_SETTINGS: ReverbSettings = {
-  mix: 0.35,
-  decay: 0.7,
-  damping: 0.3,
-  predelayMs: 20,
-  masterGain: 0.8,
+  mix: controlTarget('reverb.mix').default,
+  decay: controlTarget('reverb.decay').default,
+  damping: controlTarget('reverb.damping').default,
+  predelayMs: controlTarget('reverb.predelayMs').default,
+  masterGain: controlTarget('master.gain').default,
+}
+
+const MASTER_GAIN = controlTarget('master.gain')
+
+const reverbKnob = (
+  field: Exclude<keyof ReverbSettings, 'masterGain'>,
+  step: number,
+  unit: ControlUnit,
+) => {
+  const target = controlTarget(REVERB_SETTING_TARGETS[field])
+  return { field, label: target.label, min: target.min, max: target.max, step, unit }
 }
 
 const REVERB_KNOBS: {
@@ -26,32 +57,11 @@ const REVERB_KNOBS: {
   step: number
   unit: ControlUnit
 }[] = [
-  { field: 'mix', label: 'Mix', min: 0, max: 1, step: 0.01, unit: 'ratio' },
-  {
-    field: 'decay',
-    label: 'Decay',
-    min: 0,
-    max: 0.99,
-    step: 0.01,
-    unit: 'ratio',
-  },
-  {
-    field: 'damping',
-    label: 'Damping',
-    min: 0,
-    max: 0.99,
-    step: 0.01,
-    unit: 'ratio',
-  },
+  reverbKnob('mix', 0.01, 'ratio'),
+  reverbKnob('decay', 0.01, 'ratio'),
+  reverbKnob('damping', 0.01, 'ratio'),
   // "Predelay" (no hyphen) so the 9px caps label cannot break across lines.
-  {
-    field: 'predelayMs',
-    label: 'Predelay',
-    min: 0,
-    max: 250,
-    step: 1,
-    unit: 'ms',
-  },
+  reverbKnob('predelayMs', 1, 'ms'),
 ]
 
 interface DeviceControlsProps {
@@ -111,11 +121,11 @@ export function MasterControls({ enabled, settings, onChange }: DeviceControlsPr
   return (
     <DevicePanel title="Master" data-testid="device-master">
       <Fader
-        label="Gain"
+        label={MASTER_GAIN.label}
         orientation="horizontal"
         value={settings.masterGain}
-        min={0}
-        max={1.5}
+        min={MASTER_GAIN.min}
+        max={MASTER_GAIN.max}
         step={0.01}
         defaultValue={DEFAULT_REVERB_SETTINGS.masterGain}
         disabled={!enabled}
