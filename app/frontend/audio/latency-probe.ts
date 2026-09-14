@@ -9,6 +9,8 @@ import { ensureProcessor, type WorkletNodeFactory } from '@kieranklaassen/live-m
 import {
   MIN_PROBE_CONFIDENCE,
   PROBE_PROCESSOR_NAME,
+  ROUND_TRIP_AGREEMENT_SEC,
+  agreeingRoundTrip,
   buildProbe,
   describeContextLatency,
   findProbeOffset,
@@ -20,10 +22,12 @@ import {
 } from './latency'
 import processorUrl from './latency-probe-processor?worker&url'
 
-/** How long the input is recorded; the probe must come back within it. */
+/** How long the input is recorded per pass; the probe must come back within it. */
 export const PROBE_CAPTURE_SEC = 1
 /** Head start between arming the capture and the probe playing, so the arm lands first. */
 export const PROBE_LEAD_SEC = 0.15
+/** Passes per measurement; they must agree (see `agreeingRoundTrip`). */
+export const PROBE_PASSES = 3
 
 export interface MeasureRoundTripOptions {
   context: BaseAudioContext
@@ -31,6 +35,8 @@ export interface MeasureRoundTripOptions {
   input: AudioNode
   /** Where the probe plays; defaults to the context's destination, bypassing the mix. */
   output?: AudioNode
+  passes?: number
+  agreementSec?: number
   captureSec?: number
   leadSec?: number
   probe?: ProbeOptions
@@ -39,27 +45,37 @@ export interface MeasureRoundTripOptions {
   processorUrl?: string
 }
 
-export interface RoundTripMeasurement {
-  /** Output → input on one audio clock, or null when no loopback was heard. */
+export interface RoundTripPass {
+  /** Output → input on one audio clock, or null when this pass heard no probe. */
   roundTripSec: number | null
   /** Peak-to-RMS ratio of the correlation; below `MIN_PROBE_CONFIDENCE` reads as null above. */
   confidence: number
-  context: ContextLatency
   probeStartTimeSec: number
   captureStartFrame: number
+}
+
+export interface RoundTripMeasurement {
+  /** The round trip every pass agreed on, or null when there was no consistent loopback. */
+  roundTripSec: number | null
+  passes: RoundTripPass[]
+  context: ContextLatency
 }
 
 const defaultCreateNode: WorkletNodeFactory = (context, name, options) =>
   new AudioWorkletNode(context, name, options)
 
-export async function measureRoundTrip(options: MeasureRoundTripOptions): Promise<RoundTripMeasurement> {
-  const { context, input } = options
-  const output = options.output ?? context.destination
-  const captureSec = options.captureSec ?? PROBE_CAPTURE_SEC
-  const leadSec = options.leadSec ?? PROBE_LEAD_SEC
-  const createNode = options.createNode ?? defaultCreateNode
-  await ensureProcessor(context, options.processorUrl ?? processorUrl)
+interface ProbeRun {
+  context: BaseAudioContext
+  input: AudioNode
+  output: AudioNode
+  captureSec: number
+  leadSec: number
+  probe: Float32Array<ArrayBuffer>
+  createNode: WorkletNodeFactory
+}
 
+async function probeOnce(run: ProbeRun): Promise<RoundTripPass> {
+  const { context, input, output, captureSec, leadSec, probe, createNode } = run
   const capture = createNode(context, PROBE_PROCESSOR_NAME, {
     numberOfInputs: 1,
     numberOfOutputs: 1,
@@ -83,7 +99,6 @@ export async function measureRoundTrip(options: MeasureRoundTripOptions): Promis
   capture.connect(output)
   capture.port.postMessage({ type: 'arm', frames } satisfies ProbeMessage)
 
-  const probe = buildProbe(context.sampleRate, options.probe)
   const buffer = context.createBuffer(1, probe.length, context.sampleRate)
   buffer.copyToChannel(probe, 0)
   const source = context.createBufferSource()
@@ -108,7 +123,6 @@ export async function measureRoundTrip(options: MeasureRoundTripOptions): Promis
     return {
       roundTripSec: roundTripSec !== null && roundTripSec >= 0 ? roundTripSec : null,
       confidence,
-      context: describeContextLatency(context),
       probeStartTimeSec,
       captureStartFrame: result.startFrame,
     }
@@ -117,5 +131,34 @@ export async function measureRoundTrip(options: MeasureRoundTripOptions): Promis
     input.disconnect(capture)
     capture.disconnect()
     source.disconnect()
+  }
+}
+
+/**
+ * Several probe passes in a row; the measurement is the round trip they agree
+ * on. Each pass is audible: a 30 ms chirp at −6 dBFS out of `output`.
+ */
+export async function measureRoundTrip(options: MeasureRoundTripOptions): Promise<RoundTripMeasurement> {
+  const { context, input } = options
+  const passCount = Math.max(1, options.passes ?? PROBE_PASSES)
+  await ensureProcessor(context, options.processorUrl ?? processorUrl)
+  const run: ProbeRun = {
+    context,
+    input,
+    output: options.output ?? context.destination,
+    captureSec: options.captureSec ?? PROBE_CAPTURE_SEC,
+    leadSec: options.leadSec ?? PROBE_LEAD_SEC,
+    probe: buildProbe(context.sampleRate, options.probe),
+    createNode: options.createNode ?? defaultCreateNode,
+  }
+  const passes: RoundTripPass[] = []
+  for (let i = 0; i < passCount; i += 1) passes.push(await probeOnce(run))
+  return {
+    roundTripSec: agreeingRoundTrip(
+      passes.map((pass) => pass.roundTripSec),
+      options.agreementSec ?? ROUND_TRIP_AGREEMENT_SEC,
+    ),
+    passes,
+    context: describeContextLatency(context),
   }
 }

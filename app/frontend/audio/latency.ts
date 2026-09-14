@@ -124,6 +124,31 @@ export function roundTripSeconds(timing: RoundTripTiming): number {
   return arrivalSec - timing.probeStartTimeSec
 }
 
+/** Passes must land within this of each other to count as one round trip. */
+export const ROUND_TRIP_AGREEMENT_SEC = 0.002
+
+/**
+ * The round trip several passes agree on: their median when every pass heard
+ * the probe and the spread is within `toleranceSec`, else null. A real
+ * loopback repeats to the sample; a microphone hearing something else
+ * (a beep, speech) correlates somewhere different every time.
+ */
+export function agreeingRoundTrip(
+  passes: readonly (number | null)[],
+  toleranceSec = ROUND_TRIP_AGREEMENT_SEC,
+): number | null {
+  if (passes.length === 0) return null
+  const heard: number[] = []
+  for (const pass of passes) {
+    if (pass === null) return null
+    heard.push(pass)
+  }
+  heard.sort((a, b) => a - b)
+  if (heard[heard.length - 1]! - heard[0]! > toleranceSec) return null
+  const middle = Math.floor(heard.length / 2)
+  return heard.length % 2 === 1 ? heard[middle]! : (heard[middle - 1]! + heard[middle]!) / 2
+}
+
 /** Messages between `latency-probe.ts` and its capture processor. */
 export type ProbeMessage = { type: 'arm'; frames: number }
 export type ProbeHostMessage = {

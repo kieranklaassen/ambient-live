@@ -139,7 +139,19 @@ export default function Live({ samples }: LiveProps) {
       const engine = engineRef.current
       // Quantize so idle/steady frames set an identical value and React
       // skips the re-render instead of updating at 60fps.
-      if (engine) setLevel(Math.round(engine.outputLevel() * 200) / 200)
+      if (engine) {
+        setLevel(Math.round(engine.outputLevel() * 200) / 200)
+        // Chrome fills `outputLatency` in only once audio is flowing; keep the
+        // previous object while nothing changed so React skips the re-render.
+        const next = engine.latency()
+        setLatency((previous) =>
+          previous &&
+          previous.baseLatencySec === next.baseLatencySec &&
+          previous.outputLatencySec === next.outputLatencySec
+            ? previous
+            : next,
+        )
+      }
       frame = requestAnimationFrame(poll)
     }
     frame = requestAnimationFrame(poll)

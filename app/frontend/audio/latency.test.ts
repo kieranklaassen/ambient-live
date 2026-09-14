@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   MIN_PROBE_CONFIDENCE,
+  agreeingRoundTrip,
   buildProbe,
   describeContextLatency,
   findProbeOffset,
@@ -81,6 +82,22 @@ describe('findProbeOffset', () => {
   it('returns null when the capture is shorter than the probe', () => {
     expect(findProbeOffset(new Float32Array(10), probe)).toBeNull()
     expect(findProbeOffset(new Float32Array(10), new Float32Array(0))).toBeNull()
+  })
+})
+
+describe('agreeingRoundTrip', () => {
+  it('is the median when every pass heard the probe within tolerance', () => {
+    expect(agreeingRoundTrip([0.0225, 0.0231, 0.0219])).toBeCloseTo(0.0225, 9)
+    expect(agreeingRoundTrip([0.02, 0.021])).toBeCloseTo(0.0205, 9)
+    expect(agreeingRoundTrip([0.03])).toBe(0.03)
+  })
+
+  it('is null when a pass heard nothing, the passes spread too far, or there are none', () => {
+    expect(agreeingRoundTrip([0.02, null, 0.02])).toBeNull()
+    expect(agreeingRoundTrip([0.02, 0.36, 0.11])).toBeNull()
+    expect(agreeingRoundTrip([0.02, 0.0221])).toBeNull()
+    expect(agreeingRoundTrip([0.02, 0.0221], 0.005)).toBeCloseTo(0.02105, 9)
+    expect(agreeingRoundTrip([])).toBeNull()
   })
 })
 

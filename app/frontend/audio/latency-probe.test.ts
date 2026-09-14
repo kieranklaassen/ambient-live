@@ -13,31 +13,30 @@ import {
 import type { WorkletNodeFactory } from '@kieranklaassen/live-mix/dsp'
 
 import { PROBE_PROCESSOR_NAME, buildProbe, type ProbeMessage } from './latency'
-import { measureRoundTrip } from './latency-probe'
+import { measureRoundTrip, type MeasureRoundTripOptions } from './latency-probe'
 
 vi.mock('./latency-probe-processor?worker&url', () => ({ default: '/latency-probe.js' }))
 
 const createNode: WorkletNodeFactory = (context, name, options) =>
   (context as unknown as MockAudioContext).createWorkletNode(name, options) as unknown as AudioWorkletNode
 
-/** The processor load is awaited before the node exists; let that settle. */
+/** The processor load and each pass's teardown are awaited; let them settle. */
 const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 
-async function setUp(currentTime = 2) {
+function start(currentTime: number, options: Partial<MeasureRoundTripOptions> = {}) {
   const ctx = createMockContext({ sampleRate: 48000, currentTime })
   const input = ctx.createMediaStreamSource({ getAudioTracks: () => [] })
   const pending = measureRoundTrip({
     context: asAudioContext(ctx),
     input: asAudioNode(input),
     createNode,
+    ...options,
   })
-  await settle()
-  const capture = ctx.workletNodes[0]!
-  return { ctx, input, capture, pending }
+  return { ctx, input, pending }
 }
 
 /** What the processor posts back: `roundTripSec` of the probe heard again, plus noise. */
-function captureWith(
+function deliverCapture(
   capture: MockAudioWorkletNode,
   ctx: MockAudioContext,
   probeStartTimeSec: number,
@@ -55,9 +54,20 @@ function captureWith(
   capture.port.receive({ type: 'captured', startFrame, samples })
 }
 
+/** Run every pass: each one's capture node appears after the previous pass settles. */
+async function runPasses(ctx: MockAudioContext, roundTrips: (number | null)[]) {
+  const probeStart = ctx.currentTime + 0.15
+  for (let i = 0; i < roundTrips.length; i += 1) {
+    await settle()
+    deliverCapture(ctx.workletNodes[i]!, ctx, probeStart, roundTrips[i]!)
+  }
+}
+
 describe('measureRoundTrip', () => {
   it('loads the processor once, taps the input and schedules the probe after the lead', async () => {
-    const { ctx, input, capture, pending } = await setUp(2)
+    const { ctx, input, pending } = start(2, { passes: 1 })
+    await settle()
+    const capture = ctx.workletNodes[0]!
     expect(ctx.audioWorklet.modules).toEqual(['/latency-probe.js'])
     expect(capture.name).toBe(PROBE_PROCESSOR_NAME)
     expect(input.isConnectedTo(capture)).toBe(true)
@@ -69,9 +79,10 @@ describe('measureRoundTrip', () => {
     expect(source.isConnectedTo(ctx.destination)).toBe(true)
     expect(source.startCalls.calls[0]).toEqual([2.15])
 
-    captureWith(capture, ctx, 2.15, 0.0225)
+    deliverCapture(capture, ctx, 2.15, 0.0225)
     const result = await pending
-    expect(result.probeStartTimeSec).toBe(2.15)
+    expect(result.passes).toHaveLength(1)
+    expect(result.passes[0]!.probeStartTimeSec).toBe(2.15)
     expect(result.roundTripSec).toBeCloseTo(0.0225, 4)
     expect(result.context).toEqual({ sampleRate: 48000, baseLatencySec: 0, outputLatencySec: 0 })
     // Tear-down leaves nothing hanging off the input.
@@ -80,23 +91,62 @@ describe('measureRoundTrip', () => {
     expect(source.disconnectCalls.count).toBeGreaterThan(0)
   })
 
-  it('reports null when nothing but noise came back', async () => {
-    const { ctx, capture, pending } = await setUp(1)
-    captureWith(capture, ctx, 1.15, null)
+  it('plays the probe into a supplied output instead of the destination', async () => {
+    const ctx = createMockContext({ sampleRate: 48000, currentTime: 1 })
+    const loop = ctx.createMediaStreamDestination()
+    const input = ctx.createMediaStreamSource(loop.stream)
+    const pending = measureRoundTrip({
+      context: asAudioContext(ctx),
+      input: asAudioNode(input),
+      output: asAudioNode(loop),
+      createNode,
+      passes: 1,
+    })
+    await settle()
+    expect(ctx.sources[0]!.isConnectedTo(loop)).toBe(true)
+    expect(ctx.sources[0]!.isConnectedTo(ctx.destination)).toBe(false)
+    deliverCapture(ctx.workletNodes[0]!, ctx, 1.15, 0.02)
+    expect((await pending).roundTripSec).toBeCloseTo(0.02, 4)
+  })
+
+  it('runs three passes by default and reports their agreed median', async () => {
+    const { ctx, pending } = start(2)
+    await runPasses(ctx, [0.0225, 0.0226, 0.0224])
+    const result = await pending
+    expect(result.passes.map((pass) => pass.roundTripSec)).toEqual([
+      expect.closeTo(0.0225, 4),
+      expect.closeTo(0.0226, 4),
+      expect.closeTo(0.0224, 4),
+    ])
+    expect(result.roundTripSec).toBeCloseTo(0.0225, 4)
+    expect(ctx.workletNodes).toHaveLength(3)
+  })
+
+  it('reports null when the passes disagree — the mic heard something, not the probe', async () => {
+    const { ctx, pending } = start(2)
+    await runPasses(ctx, [0.02, 0.36, 0.11])
+    const result = await pending
+    expect(result.passes.every((pass) => pass.roundTripSec !== null)).toBe(true)
+    expect(result.roundTripSec).toBeNull()
+  })
+
+  it('reports null when a pass heard only noise', async () => {
+    const { ctx, pending } = start(1, { passes: 2 })
+    await runPasses(ctx, [0.02, null])
     const result = await pending
     expect(result.roundTripSec).toBeNull()
-    expect(result.confidence).toBeLessThan(8)
+    expect(result.passes[1]!.confidence).toBeLessThan(8)
   })
 
   it('loads the processor once per context', async () => {
     const ctx = createMockContext({ sampleRate: 48000 })
     const input = asAudioNode(ctx.createMediaStreamSource({ getAudioTracks: () => [] }))
-    const first = measureRoundTrip({ context: asAudioContext(ctx), input, createNode })
-    const second = measureRoundTrip({ context: asAudioContext(ctx), input, createNode })
+    const first = measureRoundTrip({ context: asAudioContext(ctx), input, createNode, passes: 1 })
+    const second = measureRoundTrip({ context: asAudioContext(ctx), input, createNode, passes: 1 })
     await settle()
-    captureWith(ctx.workletNodes[0]!, ctx, 0.15, 0.01)
+    deliverCapture(ctx.workletNodes[0]!, ctx, 0.15, 0.01)
     await first
-    captureWith(ctx.workletNodes[1]!, ctx, 0.15, 0.01)
+    deliverCapture(ctx.workletNodes[1]!, ctx, 0.15, 0.01)
     await second
     expect(ctx.audioWorklet.modules).toEqual(['/latency-probe.js'])
   })
