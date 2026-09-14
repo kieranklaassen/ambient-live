@@ -110,14 +110,16 @@ export function useClipTransport({
     (engine: LiveEngine) => {
       const wall = wallTransportRef.current as Transport
       const position = wall.position()
-      const wasPlaying = wall.state === 'playing'
-      wall.stop()
+      const adopted = wall.state
+      // The wall transport is left as it is rather than stopped: React is
+      // still subscribed to it until `started` flips, so stopping it here
+      // would report the timeline as stopped at 0 while the engine plays on.
       const target = engine.engine.transport
       target.setLoop({ enabled: loopEnabled, lengthSec: LOOP_LENGTH_SEC })
       target.seek(position.positionSec)
       engine.clips.clips.set(regionsToClips(clips, clipFades))
-      if (wasPlaying) target.start()
-      else if (transportRef.current === 'paused') target.pause()
+      if (adopted === 'playing') target.start()
+      else if (adopted === 'paused') target.pause()
     },
     [clipFades, clips, loopEnabled],
   )
