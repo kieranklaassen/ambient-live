@@ -42,7 +42,7 @@ value at the target's normalised 0 and 1.
 A mapping onto a control always carries the control's span as its `output`
 (`liveControlOutput`): a CC at 127 lands on the knob's maximum (decay 0.99,
 not the plate's 1.0) and a MIDI switch at ≥ 64 turns monitoring on. The
-surface enforces this on every table change (`withLiveControlSpans`), so
+surface enforces this on every table change (`withLiveControlSemantics`), so
 learned and migrated bindings alike get it.
 
 `createLiveControlSurface(() => engine)` builds the surface. Targets resolve

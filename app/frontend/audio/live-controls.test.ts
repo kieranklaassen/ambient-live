@@ -5,6 +5,8 @@ import {
   MidiDecoder,
   controlTargetKey,
   isMapped,
+  mapTarget,
+  mappingFor,
   parseMappingTable,
   resolveControlEvent,
   type ControlChange,
@@ -20,11 +22,12 @@ import {
   liveControl,
   liveControlFor,
   liveControlFromUnit,
+  liveControlMode,
   liveControlOutput,
   liveControlTargetFor,
   liveMidiMapMigration,
   unitFromLiveControl,
-  withLiveControlSpans,
+  withLiveControlSemantics,
 } from './live-controls'
 
 const decoder = new MidiDecoder({ pair14Bit: false })
@@ -166,7 +169,7 @@ describe('a stored U27 table (format 1)', () => {
       { source: { kind: 'note', channel: 1, note: 37 }, target: 'synth.level' },
     ],
   })
-  const table: MappingTable = withLiveControlSpans(
+  const table: MappingTable = withLiveControlSemantics(
     parseMappingTable(stored, { migrations: [liveMidiMapMigration] }),
   )
 
@@ -229,7 +232,7 @@ describe('a stored U27 table (format 1)', () => {
   })
 
   it('turns a MIDI switch into monitor on (mute off) through the reversed span', () => {
-    const switched = withLiveControlSpans(
+    const switched = withLiveControlSemantics(
       parseMappingTable(
         {
           format: AMBIENT_LIVE_MIDI_MAP_FORMAT,
@@ -253,15 +256,37 @@ describe('a stored U27 table (format 1)', () => {
     expect(isMapped(table, cc(1, 1))).toBe(false)
   })
 
-  it('leaves a table alone once every workstation mapping carries its span', () => {
-    expect(withLiveControlSpans(table)).toBe(table)
+  it('leaves a table alone once every workstation mapping carries its semantics', () => {
+    expect(withLiveControlSemantics(table)).toBe(table)
     const foreign: MappingTable = [
       {
         ...table[0],
         target: { kind: 'strip', track: 'returns', control: 'level' },
+        mode: 'toggle',
         output: { min: 0.2, max: 0.8 },
       },
     ]
-    expect(withLiveControlSpans(foreign)).toBe(foreign)
+    expect(withLiveControlSemantics(foreign)).toBe(foreign)
+  })
+
+  it('infers the mode from the source as U27 did, even when a re-learn kept the old one', () => {
+    const monitor = liveControl('input.monitor')
+    const level = liveControl('synth.level')
+    expect(liveControlMode(monitor, { kind: 'note', channel: 1, note: 36 })).toBe('toggle')
+    expect(liveControlMode(monitor, { kind: 'cc', channel: 1, controller: 20 })).toBe('set')
+    expect(liveControlMode(level, { kind: 'note', channel: 1, note: 37 })).toBe('set')
+    // The library keeps `toggle` when a pad binding is re-learned onto a CC; the app resets it.
+    const relearned = mapTarget(table, {
+      source: { kind: 'cc', channel: 1, controller: 20 },
+      target: monitor.target,
+      mode: 'toggle',
+    })
+    const normalized = withLiveControlSemantics(relearned)
+    expect(mappingFor(normalized, monitor.target)).toMatchObject({
+      mode: 'set',
+      output: { min: 1, max: 0 },
+    })
+    const on = resolveControlEvent(normalized, cc(20, 64))[0]
+    expect(on.kind === 'set' && liveControlFromUnit(monitor, on.unit)).toBe(1)
   })
 })

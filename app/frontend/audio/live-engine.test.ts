@@ -408,7 +408,7 @@ describe('ControlSurface over the LiveEngine', () => {
     surface.handle(cc(71, 127))
     expect(live.plate.getParam('decay')).toBe(0.99)
 
-    // Learn replaces the binding and keeps the span; `Clear all` empties the table.
+    // Learn replaces the binding and keeps the span.
     surface.beginLearn(decay)
     surface.handle(cc(72, 0))
     expect(surface.table).toHaveLength(2)
@@ -416,6 +416,23 @@ describe('ControlSurface over the LiveEngine', () => {
       source: { kind: 'cc', channel: 1, controller: 72 },
       output: { min: 0, max: 0.99 },
     })
+
+    // Re-learning the monitor's pad onto a CC switch sets again (U27), not toggles.
+    surface.beginLearn(monitor)
+    surface.handle(cc(20, 127))
+    expect(surface.mappingFor(monitor)).toMatchObject({
+      source: { kind: 'cc', channel: 1, controller: 20 },
+      mode: 'set',
+      output: { min: 1, max: 0 },
+    })
+    surface.handle(cc(20, 63))
+    expect(live.liveInputMonitor).toBe(false)
+    surface.handle(cc(20, 64))
+    expect(live.liveInputMonitor).toBe(true)
+    surface.handle(cc(20, 127))
+    expect(live.liveInputMonitor).toBe(true)
+
+    // `Clear all` empties the table.
     surface.clear()
     expect(surface.table).toEqual([])
   })

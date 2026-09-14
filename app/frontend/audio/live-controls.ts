@@ -12,7 +12,9 @@ import {
   controlTargetKey,
   isBooleanTarget,
   resolveStripHost,
+  type ControlSource,
   type ControlTarget,
+  type MappingMode,
   type MappingRange,
   type MappingTable,
 } from '@kieranklaassen/live-mix'
@@ -198,20 +200,35 @@ export function liveControlOutput(spec: LiveControlSpec): MappingRange {
   return { min: unitFromLiveControl(spec, spec.min), max: unitFromLiveControl(spec, spec.max) }
 }
 
+/** U27's rule: a pad toggles an on/off control and sets anything else from velocity; a CC sets. */
+export function liveControlMode(spec: LiveControlSpec, source: ControlSource): MappingMode {
+  return source.kind === 'note' && isBooleanTarget(spec.target) ? 'toggle' : 'set'
+}
+
 /**
- * Give every mapping onto a workstation control the control's span, so a
- * learned or migrated binding covers the knob's range: decay stops at 0.99,
- * monitor on is mute off. Returns the same table when nothing changed.
+ * Give every mapping onto a workstation control the workstation's semantics:
+ * the knob's range as its span (decay stops at 0.99, monitor on is mute off)
+ * and the mode its source implies. The library keeps a mapping's options
+ * across a re-learn; U27 inferred them from the new source every time, so a
+ * pad re-learned onto a CC switch sets again. Returns the same table when
+ * nothing changed.
  */
-export function withLiveControlSpans(table: MappingTable): MappingTable {
+export function withLiveControlSemantics(table: MappingTable): MappingTable {
   let changed = false
   const next = table.map((mapping) => {
     const spec = liveControlFor(mapping.target)
     if (!spec) return mapping
     const output = liveControlOutput(spec)
-    if (mapping.output.min === output.min && mapping.output.max === output.max) return mapping
+    const mode = liveControlMode(spec, mapping.source)
+    if (
+      mapping.mode === mode &&
+      mapping.output.min === output.min &&
+      mapping.output.max === output.max
+    ) {
+      return mapping
+    }
     changed = true
-    return { ...mapping, output }
+    return { ...mapping, mode, output }
   })
   return changed ? next : table
 }
@@ -236,8 +253,8 @@ export function createLiveControlSurface(live: () => LiveEngine | null): Control
   })
   surface.onChange((change) => {
     if (change.type !== 'table') return
-    const spanned = withLiveControlSpans(change.table)
-    if (spanned !== change.table) surface.replace(spanned)
+    const normalized = withLiveControlSemantics(change.table)
+    if (normalized !== change.table) surface.replace(normalized)
   })
   return surface
 }
