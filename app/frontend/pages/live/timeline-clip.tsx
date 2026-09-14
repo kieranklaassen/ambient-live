@@ -1,6 +1,6 @@
 import { type PointerEvent as ReactPointerEvent } from 'react'
 
-import { slicePeaks, type WaveformPeaks } from '@/audio/waveform'
+import { slicePeaks, type WaveformPeaks } from '@kieranklaassen/live-mix'
 import { type ClipFades } from './timeline-clips'
 import { LOOP_LENGTH_SEC, timeToX, type SampleRegion } from './timeline-model'
 

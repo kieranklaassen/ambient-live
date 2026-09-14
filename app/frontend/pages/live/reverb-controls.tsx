@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
 
-import { PARAM, type ParamId } from '@/audio/audio-engine'
 import { DevicePanel, Fader, Knob, type ControlUnit } from '@/components/daw'
 
 export interface ReverbSettings {
@@ -21,17 +20,15 @@ export const DEFAULT_REVERB_SETTINGS: ReverbSettings = {
 
 const REVERB_KNOBS: {
   field: Exclude<keyof ReverbSettings, 'masterGain'>
-  param: ParamId
   label: string
   min: number
   max: number
   step: number
   unit: ControlUnit
 }[] = [
-  { field: 'mix', param: PARAM.reverbMix, label: 'Mix', min: 0, max: 1, step: 0.01, unit: 'ratio' },
+  { field: 'mix', label: 'Mix', min: 0, max: 1, step: 0.01, unit: 'ratio' },
   {
     field: 'decay',
-    param: PARAM.reverbDecay,
     label: 'Decay',
     min: 0,
     max: 0.99,
@@ -40,7 +37,6 @@ const REVERB_KNOBS: {
   },
   {
     field: 'damping',
-    param: PARAM.reverbDamping,
     label: 'Damping',
     min: 0,
     max: 0.99,
@@ -50,7 +46,6 @@ const REVERB_KNOBS: {
   // "Predelay" (no hyphen) so the 9px caps label cannot break across lines.
   {
     field: 'predelayMs',
-    param: PARAM.reverbPredelayMs,
     label: 'Predelay',
     min: 0,
     max: 250,
@@ -62,7 +57,7 @@ const REVERB_KNOBS: {
 interface DeviceControlsProps {
   enabled: boolean
   settings: ReverbSettings
-  onChange: (field: keyof ReverbSettings, param: ParamId, value: number) => void
+  onChange: (field: keyof ReverbSettings, value: number) => void
 }
 
 export default function ReverbControls({ enabled, settings, onChange }: DeviceControlsProps) {
@@ -75,11 +70,11 @@ export default function ReverbControls({ enabled, settings, onChange }: DeviceCo
   function handlePowerChange(next: boolean) {
     setPowered(next)
     if (next) {
-      onChange('mix', PARAM.reverbMix, bypassedMixRef.current)
+      onChange('mix', bypassedMixRef.current)
       return
     }
     bypassedMixRef.current = settings.mix
-    onChange('mix', PARAM.reverbMix, 0)
+    onChange('mix', 0)
   }
 
   return (
@@ -91,7 +86,7 @@ export default function ReverbControls({ enabled, settings, onChange }: DeviceCo
       data-testid="device-reverb"
     >
       <div className="grid grid-cols-4 justify-items-center gap-x-1 gap-y-sg-1">
-        {REVERB_KNOBS.map(({ field, param, label, min, max, step, unit }) => (
+        {REVERB_KNOBS.map(({ field, label, min, max, step, unit }) => (
           <Knob
             key={field}
             label={label}
@@ -103,7 +98,7 @@ export default function ReverbControls({ enabled, settings, onChange }: DeviceCo
             unit={unit}
             size={40}
             disabled={!enabled || !powered}
-            onChange={(value) => onChange(field, param, value)}
+            onChange={(value) => onChange(field, value)}
             data-testid={`reverb-${field}`}
           />
         ))}
@@ -124,7 +119,7 @@ export function MasterControls({ enabled, settings, onChange }: DeviceControlsPr
         step={0.01}
         defaultValue={DEFAULT_REVERB_SETTINGS.masterGain}
         disabled={!enabled}
-        onChange={(value) => onChange('masterGain', PARAM.masterGain, value)}
+        onChange={(value) => onChange('masterGain', value)}
         data-testid="master-gain"
       />
     </DevicePanel>

@@ -11,4 +11,9 @@ export default defineConfig({
     inertia(),
     react(),
   ],
+  // live-mix is pure ESM with no dependencies; pre-bundling it would break the
+  // `new URL(..., import.meta.url)` resolution of its worklet and .wasm in dev.
+  optimizeDeps: { exclude: ['@kieranklaassen/live-mix'] },
+  // `npm link ../live-mix` puts the package outside the Vite root.
+  server: { fs: { allow: ['..'] } },
 })

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "dattorro_reverb.h"
 #include "sample_voice.h"
 #include "sine_voice.h"
 
@@ -8,18 +7,14 @@ namespace ambient {
 
 // Parameter ids shared with the TypeScript wrapper (app/frontend/audio).
 enum class Param : int {
-  kReverbMix = 0,
-  kReverbDecay = 1,
-  kReverbDamping = 2,
-  kReverbPredelayMs = 3,
-  kMasterGain = 4,
+  kGain = 0,
 };
 
-// The whole instrument: a sine voice pool, one sample voice, and a stereo
-// input bus, all summed into a Dattorro plate. The input bus carries audio
-// produced outside the core — browser-scheduled timeline clips today — so it
-// reaches the same reverb as everything else. Statically allocated;
-// process() is allocation-free.
+// The instrument: a sine voice pool, one sample voice, and a stereo input
+// bus, summed dry. It is hosted as a live-mix WasmDevice on an
+// InstrumentTrack; the plate reverb that used to live here is now the
+// library's Dattorro device on the master bus, and master level is the
+// library's master fader. Statically allocated; process() is allocation-free.
 class Engine {
  public:
   static constexpr int kVoiceCount = 8;
@@ -52,18 +47,14 @@ class Engine {
   const float* out_left() const { return out_left_; }
   const float* out_right() const { return out_right_; }
 
-  DattorroReverb& reverb() { return reverb_; }
-
  private:
   SineVoice* find_voice(int note_id);
 
   float sample_rate_ = 48000.0f;
-  float reverb_mix_ = 0.35f;
-  float master_gain_ = 0.8f;
+  float gain_ = 1.0f;
 
   SineVoice voices_[kVoiceCount];
   SampleVoice sample_;
-  DattorroReverb reverb_;
 
   float in_left_[kMaxBlockFrames] = {};
   float in_right_[kMaxBlockFrames] = {};

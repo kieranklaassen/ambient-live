@@ -1,39 +1,47 @@
 #!/bin/bash
-# Builds the committed WASM artifact from the C++ core (plan KTD-7).
-# Requires Emscripten (brew install emscripten). Output has no JS glue: the
-# worklet instantiates the raw module (plan KTD-3).
+# Builds the committed WASM artifact from the C++ instrument (plan KTD-7).
+# Requires Emscripten 4.0.15 (the version live-mix pins; `brew install
+# emscripten` or emsdk). Output has no JS glue: the worklet instantiates the
+# raw module (plan KTD-3). The device ABI header and dsp_util.h come from the
+# live-mix package, so run npm install first.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+live_mix="node_modules/@kieranklaassen/live-mix/cpp/common"
+if [ ! -f "$live_mix/device_api.h" ]; then
+  echo "live-mix headers not found at $live_mix — run npm install first." >&2
+  exit 1
+fi
+
 exports=(
-  engine_init
-  engine_note_on
-  engine_note_off
-  engine_set_param
-  engine_sample_buffer
-  engine_sample_capacity_frames
-  engine_sample_loaded
-  engine_sample_play
-  engine_sample_stop
-  engine_sample_playing
-  engine_in_left
-  engine_in_right
-  engine_max_block_frames
-  engine_process
-  engine_out_left
-  engine_out_right
+  device_init
+  device_set_param
+  device_in_left
+  device_in_right
+  device_out_left
+  device_out_right
+  device_max_block_frames
+  device_process
+  device_note_on
+  device_note_off
+  instrument_sample_buffer
+  instrument_sample_capacity_frames
+  instrument_sample_loaded
+  instrument_sample_play
+  instrument_sample_stop
+  instrument_sample_playing
 )
 exported_functions=$(printf ",_%s" "${exports[@]}")
 exported_functions=${exported_functions:1}
 
 emcc \
   engine/src/engine.cpp \
-  engine/src/dattorro_reverb.cpp \
   engine/src/api.cpp \
+  -I "$live_mix" \
   -std=c++17 -O3 -fno-exceptions -fno-rtti --no-entry \
   -s "EXPORTED_FUNCTIONS=${exported_functions}" \
   -s INITIAL_MEMORY=33554432 \
   -s ALLOW_MEMORY_GROWTH=0 \
   -o app/frontend/audio/engine.wasm
 
-echo "Built app/frontend/audio/engine.wasm"
+echo "Built app/frontend/audio/engine.wasm ($(wc -c < app/frontend/audio/engine.wasm) bytes)"
