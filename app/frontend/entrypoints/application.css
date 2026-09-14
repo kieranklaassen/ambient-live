@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import '@kieranklaassen/swiss-grid/css';
+@import '@kieranklaassen/live-mix/react/styles.css';
 
 @plugin '@tailwindcss/typography';
 @plugin '@tailwindcss/forms';
@@ -27,6 +28,9 @@
   --color-al-key-white: #c9d8d2;
   --color-al-key-black: #132420;
   --color-al-danger: #d27a7a;
+  /* Mixer-only accents (solo buttons, loudness bars); same values as the kit's ambientWater preset. */
+  --color-al-solo: #d9c36a;
+  --color-al-lufs: #7aa6c2;
 
   /* Soft field washes (paper-texture layered color feel, CSS-only) */
   --color-al-wash-water: #163845;
@@ -41,6 +45,58 @@
   --spacing-sg-2: 12px;
   --spacing-sg-3: 18px;
   --spacing-sg-4: 24px;
+}
+
+/*
+  live-mix React kit tokens (`--lm-*`) read from the `al-*` palette above, so the
+  kit's knobs, faders, meters and device chrome follow this theme (the kit's
+  `ambientWater` preset is this same mapping as a JS object). Declared
+  unlayered so it beats the kit stylesheet's `:root` defaults.
+*/
+.workstation-shell {
+  --lm-bg: var(--color-al-chrome);
+  --lm-panel: var(--color-al-panel);
+  --lm-raised: var(--color-al-raised);
+  --lm-sunken: var(--color-al-sunken);
+  --lm-border: var(--color-al-border);
+  --lm-hairline: var(--color-al-hairline);
+  --lm-text: var(--color-al-text);
+  --lm-muted: var(--color-al-muted);
+  --lm-dim: var(--color-al-dim);
+  --lm-accent: var(--color-al-accent);
+  --lm-accent-soft: var(--color-al-accent-soft);
+  --lm-control-value: var(--color-al-control-value);
+  --lm-danger: var(--color-al-danger);
+  --lm-solo: var(--color-al-solo);
+  --lm-mute: var(--color-al-text);
+  --lm-meter: var(--color-al-accent);
+  --lm-meter-hot: var(--color-al-danger);
+  --lm-meter-rms: var(--color-al-muted);
+  --lm-meter-lufs: var(--color-al-lufs);
+  --lm-meter-track: var(--color-al-sunken);
+  --lm-playhead: var(--color-al-accent);
+  --lm-clip: var(--color-al-raised);
+  --lm-clip-border: var(--color-al-accent);
+  --lm-clip-active: var(--color-al-accent-soft);
+  --lm-focus: var(--color-al-accent);
+
+  --lm-font: var(--font-ui);
+  --lm-font-mono: var(--font-mono);
+  --lm-font-size: 11px;
+  --lm-label-size: 9px;
+
+  --lm-radius: 1px;
+  --lm-space-1: var(--spacing-sg-1);
+  --lm-space-2: var(--spacing-sg-2);
+  --lm-space-3: var(--spacing-sg-3);
+  --lm-knob-size: 40px;
+  --lm-fader-width: 20px;
+  --lm-fader-height: 88px;
+  --lm-meter-width: 6px;
+  --lm-strip-width: 76px;
+  --lm-stroke: 2px;
+  --lm-lane-height: 44px;
+  --lm-transition: 80ms;
 }
 
 @layer base {

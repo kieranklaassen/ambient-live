@@ -30,5 +30,5 @@
     }
   },
   "include": ["app/frontend"],
-  "exclude": ["app/frontend/**/*.test.ts"]
+  "exclude": ["app/frontend/**/*.test.ts", "app/frontend/**/*.test.tsx"]
 }

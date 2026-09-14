@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 
+import { DeviceFrame, Fader, Knob, type ControlUnit } from '@kieranklaassen/live-mix/react'
+
 import { liveControl, type LiveControlId, type LiveControlValues } from '@/audio/live-controls'
-import { DevicePanel, Fader, Knob, type ControlUnit } from '@/components/daw'
 
 export interface ReverbSettings {
   mix: number
@@ -87,7 +88,7 @@ export default function ReverbControls({ enabled, settings, onChange }: DeviceCo
   }
 
   return (
-    <DevicePanel
+    <DeviceFrame
       title="Reverb"
       powered={powered}
       disabled={!enabled}
@@ -112,13 +113,13 @@ export default function ReverbControls({ enabled, settings, onChange }: DeviceCo
           />
         ))}
       </div>
-    </DevicePanel>
+    </DeviceFrame>
   )
 }
 
 export function MasterControls({ enabled, settings, onChange }: DeviceControlsProps) {
   return (
-    <DevicePanel title="Master" data-testid="device-master">
+    <DeviceFrame title="Master" data-testid="device-master">
       <Fader
         label={MASTER_GAIN.label}
         orientation="horizontal"
@@ -131,6 +132,6 @@ export function MasterControls({ enabled, settings, onChange }: DeviceControlsPr
         onChange={(value) => onChange('masterGain', value)}
         data-testid="master-gain"
       />
-    </DevicePanel>
+    </DeviceFrame>
   )
 }

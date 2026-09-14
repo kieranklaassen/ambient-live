@@ -1,6 +1,8 @@
 import { type PointerEvent as ReactPointerEvent } from 'react'
 
 import { slicePeaks, type WaveformPeaks } from '@kieranklaassen/live-mix'
+import { Waveform } from '@kieranklaassen/live-mix/react'
+
 import { type ClipFades } from './timeline-clips'
 import { LOOP_LENGTH_SEC, timeToX, type SampleRegion } from './timeline-model'
 
@@ -67,29 +69,18 @@ export default function TimelineClip({
   )
 }
 
+/** The audible slice of the sample, stretched to the clip so a trim reveals a different part of the wave. */
 function ClipWaveform({ clip, peaks }: { clip: SampleRegion; peaks: WaveformPeaks }) {
   const sliced = slicePeaks(peaks, clip.offsetSec, clip.durationSec, clip.sourceDurationSec ?? 0)
-  const count = sliced.min.length
-  if (count === 0) return null
-
-  // Outline down the maxima and back along the minima; the viewBox stretches
-  // to the clip so a trim reveals a different part of the wave.
-  const top: string[] = []
-  const bottom: string[] = []
-  for (let i = 0; i < count; i++) {
-    top.push(`${i},${50 - sliced.max[i] * 48}`)
-    bottom.push(`${count - 1 - i},${50 - sliced.min[count - 1 - i] * 48}`)
-  }
+  if (sliced.min.length === 0) return null
 
   return (
-    <svg
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 h-full w-full"
-      viewBox={`0 0 ${Math.max(count - 1, 1)} 100`}
-      preserveAspectRatio="none"
-    >
-      <polygon points={[...top, ...bottom].join(' ')} fill="var(--color-al-accent)" opacity="0.75" />
-    </svg>
+    <Waveform
+      peaks={sliced}
+      fill="var(--lm-accent)"
+      className="pointer-events-none absolute inset-0"
+      style={{ opacity: 0.75 }}
+    />
   )
 }
 

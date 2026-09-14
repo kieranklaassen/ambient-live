@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
 import type { StorageLike, WaveformPeaks } from '@kieranklaassen/live-mix'
+import { LiveMixProvider, Meter, type MeterSnapshot } from '@kieranklaassen/live-mix/react'
 
 import type { ContextLatency } from '@/audio/latency'
 import type { RoundTripMeasurement } from '@/audio/latency-probe'
@@ -73,6 +74,33 @@ function browserStorage(): StorageLike | null {
   }
 }
 
+const SILENT_READING: MeterSnapshot = {
+  peak: 0,
+  rms: 0,
+  peakDb: -Infinity,
+  lufs: null,
+  lufsShortTerm: -Infinity,
+  truePeakDb: -Infinity,
+  hasMeter: false,
+  hasLufs: false,
+}
+
+/** Master peak off the provided engine; an empty bar until audio has started. */
+function OutputMeter({ live }: { live: boolean }) {
+  const shared = {
+    orientation: 'horizontal',
+    bars: ['peak'],
+    showReadout: false,
+    label: 'Output level',
+    'data-testid': 'output-meter',
+  } as const
+  return (
+    <div className="w-24 sm:w-32">
+      {live ? <Meter {...shared} /> : <Meter {...shared} reading={SILENT_READING} />}
+    </div>
+  )
+}
+
 export default function Live({ samples }: LiveProps) {
   const engineRef = useRef<LiveEngine | null>(null)
   // One surface for the page's life: it holds the stored mapping table (U27's
@@ -84,7 +112,6 @@ export default function Live({ samples }: LiveProps) {
   const [started, setStarted] = useState(false)
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
-  const [level, setLevel] = useState(0)
   const [controls, setControls] = useState<LiveControlValues>(defaultLiveControls)
   const controlsRef = useRef(controls)
   controlsRef.current = controls
@@ -153,10 +180,7 @@ export default function Live({ samples }: LiveProps) {
     let frame = 0
     const poll = () => {
       const engine = engineRef.current
-      // Quantize so idle/steady frames set an identical value and React
-      // skips the re-render instead of updating at 60fps.
       if (engine) {
-        setLevel(Math.round(engine.outputLevel() * 200) / 200)
         // Chrome fills `outputLatency` in only once audio is flowing; keep the
         // previous object while nothing changed so React skips the re-render.
         const next = engine.latency()
@@ -458,175 +482,170 @@ export default function Live({ samples }: LiveProps) {
     void loadRegionSource(region)
   }
 
-  return (
-    <main
-      ref={shellRef}
-      className={`workstation-shell sg-grid sg-compact antialiased${dragging ? ' sg-guides-rhythm' : ''}`}
-      style={{ '--al-row-count': layout.rowCount } as CSSProperties}
-    >
-      <Head title="Ambient Live" />
-      <ShortcutOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-      <header
-        className="workstation-region sg-col-1 sg-span-edge sg-row-1 sg-rows-1 flex items-center justify-between gap-3 border-b border-al-border bg-al-panel px-sg-2"
-        style={paneVars({ row: 1, rows: layout.headerRows })}
-      >
-        <h1 className="text-[11px] font-medium uppercase tracking-[0.16em] text-al-text sg-leading-2">
-          Ambient Live
-        </h1>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {!started ? (
-            <div className="flex flex-col items-end gap-0.5">
-              <button
-                type="button"
-                onClick={() => void startAudio()}
-                disabled={starting}
-                className="rounded-[1px] border border-al-accent bg-al-accent px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-al-chrome disabled:opacity-50"
-              >
-                {starting ? 'Starting…' : 'Start audio'}
-              </button>
-              {startError && (
-                <p className="max-w-xs text-right text-[11px] text-al-danger">{startError}</p>
-              )}
-            </div>
-          ) : (
-            <span
-              className="size-1.5 rounded-[1px] bg-al-accent"
-              data-testid="audio-started"
-              title="Audio live"
-            />
-          )}
-          <div className="flex items-center gap-1.5" aria-label="Output level">
-            <div className="h-1.5 w-24 overflow-hidden rounded-[1px] border border-al-border bg-al-sunken sm:w-32">
-              <div
-                data-testid="output-meter"
-                data-level={level.toFixed(3)}
-                aria-hidden="true"
-                className="h-full bg-al-accent"
-                style={{ width: `${Math.round(level * 100)}%` }}
-              />
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => router.delete('/session')}
-            className="rounded-[1px] px-2 py-1 text-[11px] uppercase tracking-wide text-al-dim hover:text-al-text"
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
+  // The ref does not re-render; `started` flips once the engine exists.
+  const engine = started ? engineRef.current?.engine ?? null : null
 
-      <SampleBrowser
-        className="relative sg-col-1 sg-span-1 sg-row-1 sg-rows-1"
-        style={paneVars({
-          col: 1,
-          span: layout.browserCols,
-          row: layout.contentStart,
-          rows: layout.contentRows,
-        })}
-        samples={samples}
-        localSamples={localSamples}
-        localFolderName={localFolderName}
-        enabled={started && loadingSampleId === null}
-        playingSampleId={playingSampleId}
-        onPlay={(sample) => void playSample(sample)}
-        onStop={stopSample}
-        onLocalSamplesChange={(next, folderName) => {
-          const nextIds = new Set(next.map((sample) => sample.id))
-          const removedIds = new Set(
-            localSamples
-              .filter((sample) => !nextIds.has(sample.id))
-              .map((sample) => sample.id),
-          )
-          if (removedIds.size > 0) {
-            // Clips for a sample that just went away must not keep sounding,
-            // and the queue is re-derived from what survives.
-            setRegions((previous) =>
-              previous.filter((region) => !removedIds.has(region.sampleId)),
+  return (
+    <LiveMixProvider engine={engine}>
+      <main
+        ref={shellRef}
+        className={`workstation-shell sg-grid sg-compact antialiased${dragging ? ' sg-guides-rhythm' : ''}`}
+        style={{ '--al-row-count': layout.rowCount } as CSSProperties}
+      >
+        <Head title="Ambient Live" />
+        <ShortcutOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+        <header
+          className="workstation-region sg-col-1 sg-span-edge sg-row-1 sg-rows-1 flex items-center justify-between gap-3 border-b border-al-border bg-al-panel px-sg-2"
+          style={paneVars({ row: 1, rows: layout.headerRows })}
+        >
+          <h1 className="text-[11px] font-medium uppercase tracking-[0.16em] text-al-text sg-leading-2">
+            Ambient Live
+          </h1>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {!started ? (
+              <div className="flex flex-col items-end gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => void startAudio()}
+                  disabled={starting}
+                  className="rounded-[1px] border border-al-accent bg-al-accent px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-al-chrome disabled:opacity-50"
+                >
+                  {starting ? 'Starting…' : 'Start audio'}
+                </button>
+                {startError && (
+                  <p className="max-w-xs text-right text-[11px] text-al-danger">{startError}</p>
+                )}
+              </div>
+            ) : (
+              <span
+                className="size-1.5 rounded-[1px] bg-al-accent"
+                data-testid="audio-started"
+                title="Audio live"
+              />
+            )}
+            <OutputMeter live={started} />
+            <button
+              type="button"
+              onClick={() => router.delete('/session')}
+              className="rounded-[1px] px-2 py-1 text-[11px] uppercase tracking-wide text-al-dim hover:text-al-text"
+            >
+              Sign out
+            </button>
+          </div>
+        </header>
+
+        <SampleBrowser
+          className="relative sg-col-1 sg-span-1 sg-row-1 sg-rows-1"
+          style={paneVars({
+            col: 1,
+            span: layout.browserCols,
+            row: layout.contentStart,
+            rows: layout.contentRows,
+          })}
+          samples={samples}
+          localSamples={localSamples}
+          localFolderName={localFolderName}
+          enabled={started && loadingSampleId === null}
+          playingSampleId={playingSampleId}
+          onPlay={(sample) => void playSample(sample)}
+          onStop={stopSample}
+          onLocalSamplesChange={(next, folderName) => {
+            const nextIds = new Set(next.map((sample) => sample.id))
+            const removedIds = new Set(
+              localSamples
+                .filter((sample) => !nextIds.has(sample.id))
+                .map((sample) => sample.id),
             )
-            if (playingSampleId != null && removedIds.has(playingSampleId)) {
-              stopSample()
+            if (removedIds.size > 0) {
+              // Clips for a sample that just went away must not keep sounding,
+              // and the queue is re-derived from what survives.
+              setRegions((previous) =>
+                previous.filter((region) => !removedIds.has(region.sampleId)),
+              )
+              if (playingSampleId != null && removedIds.has(playingSampleId)) {
+                stopSample()
+              }
+              resetSchedule()
+              for (const id of removedIds) {
+                engineRef.current?.forgetSample(id)
+              }
+              setPeaksBySampleId((previous) => {
+                const next = new Map(previous)
+                for (const id of removedIds) next.delete(id)
+                return next
+              })
             }
-            resetSchedule()
-            for (const id of removedIds) {
-              engineRef.current?.forgetSample(id)
-            }
-            setPeaksBySampleId((previous) => {
-              const next = new Map(previous)
-              for (const id of removedIds) next.delete(id)
-              return next
-            })
-          }
-          setLocalSamples(next)
-          setLocalFolderName(folderName)
-        }}
-      >
-        <PaneSplitter
-          orientation="vertical"
-          label="Resize browser"
-          testId="pane-splitter-browser"
-          onPointerDown={startBrowserDrag}
-          onPointerMove={moveBrowserDrag}
-          onPointerUp={endDrag}
+            setLocalSamples(next)
+            setLocalFolderName(folderName)
+          }}
+        >
+          <PaneSplitter
+            orientation="vertical"
+            label="Resize browser"
+            testId="pane-splitter-browser"
+            onPointerDown={startBrowserDrag}
+            onPointerMove={moveBrowserDrag}
+            onPointerUp={endDrag}
+          />
+        </SampleBrowser>
+        <Timeline
+          className="sg-col-1 sg-span-edge sg-row-1 sg-rows-1"
+          style={paneVars({
+            col: layout.timelineCol,
+            row: layout.contentStart,
+            rows: layout.contentRows,
+          })}
+          regions={regions}
+          clipFades={clipFades}
+          peaksBySampleId={peaksBySampleId}
+          playheadSec={playheadSec}
+          transport={transport}
+          loopEnabled={loopEnabled}
+          onLoopEnabledChange={setLoopEnabled}
+          onTransportChange={changeTransport}
+          onSeek={seek}
+          onDropSample={handleDropSample}
+          onClipChange={changeClip}
         />
-      </SampleBrowser>
-      <Timeline
-        className="sg-col-1 sg-span-edge sg-row-1 sg-rows-1"
-        style={paneVars({
-          col: layout.timelineCol,
-          row: layout.contentStart,
-          rows: layout.contentRows,
-        })}
-        regions={regions}
-        clipFades={clipFades}
-        peaksBySampleId={peaksBySampleId}
-        playheadSec={playheadSec}
-        transport={transport}
-        loopEnabled={loopEnabled}
-        onLoopEnabledChange={setLoopEnabled}
-        onTransportChange={changeTransport}
-        onSeek={seek}
-        onDropSample={handleDropSample}
-        onClipChange={changeClip}
-      />
-      <DeviceStrip
-        className="relative sg-col-1 sg-span-edge sg-row-1 sg-rows-1"
-        style={paneVars({
-          row: layout.deviceStart,
-          rows: layout.deviceRows,
-        })}
-        enabled={started}
-        settings={settings}
-        onChange={changeSetting}
-        onNoteOn={noteOn}
-        onMidiNoteOn={acquireNote}
-        onNoteOff={releaseNote}
-        surface={surface}
-        liveInput={{
-          input: liveInput,
-          latency,
-          measurement,
-          measuring,
-          measureError,
-          onInputEnabledChange: (enabled) => {
-            if (enabled) void enableLiveInput()
-            else disableLiveInput()
-          },
-          onMonitorChange: (monitor) => changeControl('input.monitor', monitor ? 1 : 0),
-          onLevelChange: (value) => changeControl('input.level', value),
-          onPanChange: (value) => changeControl('input.pan', value),
-          onMeasure: () => void measureLatency(),
-        }}
-      >
-        <PaneSplitter
-          orientation="horizontal"
-          label="Resize devices"
-          testId="pane-splitter-devices"
-          onPointerDown={startDeviceDrag}
-          onPointerMove={moveDeviceDrag}
-          onPointerUp={endDrag}
-        />
-      </DeviceStrip>
-    </main>
+        <DeviceStrip
+          className="relative sg-col-1 sg-span-edge sg-row-1 sg-rows-1"
+          style={paneVars({
+            row: layout.deviceStart,
+            rows: layout.deviceRows,
+          })}
+          enabled={started}
+          settings={settings}
+          onChange={changeSetting}
+          onNoteOn={noteOn}
+          onMidiNoteOn={acquireNote}
+          onNoteOff={releaseNote}
+          surface={surface}
+          liveInput={{
+            input: liveInput,
+            latency,
+            measurement,
+            measuring,
+            measureError,
+            onInputEnabledChange: (enabled) => {
+              if (enabled) void enableLiveInput()
+              else disableLiveInput()
+            },
+            onMonitorChange: (monitor) => changeControl('input.monitor', monitor ? 1 : 0),
+            onLevelChange: (value) => changeControl('input.level', value),
+            onPanChange: (value) => changeControl('input.pan', value),
+            onMeasure: () => void measureLatency(),
+          }}
+        >
+          <PaneSplitter
+            orientation="horizontal"
+            label="Resize devices"
+            testId="pane-splitter-devices"
+            onPointerDown={startDeviceDrag}
+            onPointerMove={moveDeviceDrag}
+            onPointerUp={endDrag}
+          />
+        </DeviceStrip>
+      </main>
+    </LiveMixProvider>
   )
 }
