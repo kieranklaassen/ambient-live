@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 
-import { controlTarget, type ControlTargetId, type ControlValues } from '@/audio/control-targets'
+import { liveControl, type LiveControlId, type LiveControlValues } from '@/audio/live-controls'
 import { DevicePanel, Fader, Knob, type ControlUnit } from '@/components/daw'
 
 export interface ReverbSettings {
@@ -11,8 +11,8 @@ export interface ReverbSettings {
   masterGain: number
 }
 
-/** Which control target each setting is: the mapping layer and the knobs share one range. */
-export const REVERB_SETTING_TARGETS: Record<keyof ReverbSettings, ControlTargetId> = {
+/** Which control each setting is: the mapping layer and the knobs share one range. */
+export const REVERB_SETTING_TARGETS: Record<keyof ReverbSettings, LiveControlId> = {
   mix: 'reverb.mix',
   decay: 'reverb.decay',
   damping: 'reverb.damping',
@@ -20,7 +20,7 @@ export const REVERB_SETTING_TARGETS: Record<keyof ReverbSettings, ControlTargetI
   masterGain: 'master.gain',
 }
 
-export function reverbSettingsFrom(controls: ControlValues): ReverbSettings {
+export function reverbSettingsFrom(controls: LiveControlValues): ReverbSettings {
   return {
     mix: controls['reverb.mix'],
     decay: controls['reverb.decay'],
@@ -31,22 +31,22 @@ export function reverbSettingsFrom(controls: ControlValues): ReverbSettings {
 }
 
 export const DEFAULT_REVERB_SETTINGS: ReverbSettings = {
-  mix: controlTarget('reverb.mix').default,
-  decay: controlTarget('reverb.decay').default,
-  damping: controlTarget('reverb.damping').default,
-  predelayMs: controlTarget('reverb.predelayMs').default,
-  masterGain: controlTarget('master.gain').default,
+  mix: liveControl('reverb.mix').default,
+  decay: liveControl('reverb.decay').default,
+  damping: liveControl('reverb.damping').default,
+  predelayMs: liveControl('reverb.predelayMs').default,
+  masterGain: liveControl('master.gain').default,
 }
 
-const MASTER_GAIN = controlTarget('master.gain')
+const MASTER_GAIN = liveControl('master.gain')
 
 const reverbKnob = (
   field: Exclude<keyof ReverbSettings, 'masterGain'>,
   step: number,
   unit: ControlUnit,
 ) => {
-  const target = controlTarget(REVERB_SETTING_TARGETS[field])
-  return { field, label: target.label, min: target.min, max: target.max, step, unit }
+  const spec = liveControl(REVERB_SETTING_TARGETS[field])
+  return { field, label: spec.label, min: spec.min, max: spec.max, step, unit }
 }
 
 const REVERB_KNOBS: {
@@ -60,7 +60,6 @@ const REVERB_KNOBS: {
   reverbKnob('mix', 0.01, 'ratio'),
   reverbKnob('decay', 0.01, 'ratio'),
   reverbKnob('damping', 0.01, 'ratio'),
-  // "Predelay" (no hyphen) so the 9px caps label cannot break across lines.
   reverbKnob('predelayMs', 1, 'ms'),
 ]
 

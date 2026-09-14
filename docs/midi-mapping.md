@@ -1,90 +1,96 @@
-# MIDI pass-through and mapping (U27)
+# MIDI pass-through and mapping
 
 Notes keep playing the synth. Control changes — and notes you choose — drive
-the workstation's controls through a small learn-lite mapping table that is
-persisted in `localStorage`. Part of the live-mix unified plan, unit U27
-(requirement R15, partial).
+the workstation's controls through live-mix's `ControlSurface` (library unit
+U36, requirement R15), which owns the mapping table, learn, resolution and
+persistence. The app describes its controls as `ControlTarget`s and builds the
+surface over its engine; the mapping code that U27 kept in the app
+(`midi-map.ts`, `control-targets.ts`, `parseMidiEvent`) is gone.
 
 ## Flow
 
 ```
-MIDIInput.onmidimessage
-  → parseMidiEvent (audio/midi.ts): note-on | note-off | cc, with channel
-  → useMidiMap.dispatch (pages/live/use-midi-map.ts)
-      learn armed?  → bind the armed target to this CC / note, consume
-      mapped?       → resolveMidiEvent → ControlChange[] → page handler, consume
-      otherwise     → notes fall through to the synth (InstrumentTrack.noteOn/off)
-  → Live page: controlValueFromUnit → LiveEngine.applyControl (ramped)
+MIDIInput (the port picked in the MIDI panel)
+  → MidiInput (live-mix): running status, 14-bit pairs, ControlEvents
+      ├─ surface.connect(input)      learn armed? → bind, consume
+      │                              mapped?      → resolve → binding.write (ramped)
+      │                              → surface.onChange('applied') → the knobs follow
+      └─ input.onMessage             notes: mapped or being learned → skipped
+                                     otherwise → InstrumentTrack.noteOn/off
+Knobs and faders → Live page changeControl → surface.set(target, unit)
 ```
 
-`parseMidiMessage` (the note-only parser the synth path used) is unchanged in
-behaviour and now derives from `parseMidiEvent`.
+Every write ramps as before: WASM parameters inside the device host, strip
+and master moves through `setTargetAtTime` at 5 ms. There is one write path
+for on-screen and hardware controls alike (`ControlSurface`), and one source
+of truth for what the knobs show (`controls` on the Live page).
 
-## Control targets (`audio/control-targets.ts`)
+## Controls (`audio/live-controls.ts`)
 
-One table describes every target: id, label, group, range, default and kind.
-The knobs and the mapping layer share it, so a CC at 127 lands exactly where
-the knob's maximum is.
+`LIVE_CONTROLS` describes each control once: id, label, group, knob range,
+default, the library `ControlTarget` it lands on, and `scale` — the control's
+value at the target's normalised 0 and 1.
 
-| Id | Range | Applied as |
-|---|---|---|
-| `reverb.mix` `reverb.decay` `reverb.damping` `reverb.predelayMs` | knob ranges | `plate.setParam` (WASM host ramps 5 ms) |
-| `master.gain` | 0–1.5 | `engine.master.setLevel` (5 ms `setTargetAtTime`) |
-| `synth.level` `clips.level` `input.level` | 0–1.5 | `track.strip.setLevel` |
-| `synth.pan` `clips.pan` `input.pan` | −1–1 | `track.strip.setPan` |
-| `input.monitor` | toggle | `setLiveInputMonitor` (strip mute gate) |
+| Id | Target | Knob range | Notes |
+|---|---|---|---|
+| `reverb.mix` `reverb.decay` `reverb.damping` `reverb.predelayMs` | `{ device: 'reverb', param }` | plate spec (decay, damping capped at 0.99) | the plate is resolved as device `reverb` |
+| `master.gain` | `{ master: 'level' }` | 0–1.5 | |
+| `synth.level` `clips.level` `input.level` | `{ strip, control: 'level' }` | 0–1.5 | `STRIP_LEVEL_MAX` = the surface's `levelMax` |
+| `synth.pan` `clips.pan` `input.pan` | `{ strip, control: 'pan' }` | −1–1 | |
+| `input.monitor` | `{ strip: 'input', control: 'mute' }` | on/off | scale reversed: monitor on is mute off |
 
-Adding a target: extend the `ControlTargetId` union, add its spec to
-`CONTROL_TARGETS`, add a case to `LiveEngine.applyControl`. The exhaustive
-`switch` fails to compile until the case exists.
+A mapping onto a control always carries the control's span as its `output`
+(`liveControlOutput`): a CC at 127 lands on the knob's maximum (decay 0.99,
+not the plate's 1.0) and a MIDI switch at ≥ 64 turns monitoring on. Its mode
+follows its source as in U27 (`liveControlMode`: a pad toggles the monitor and
+sets anything else from velocity; a CC sets) — the library would keep the old
+mode across a re-learn. The surface enforces both on every table change
+(`withLiveControlSemantics`), so learned and migrated bindings alike get it.
 
-## Mapping layer (`audio/midi-map.ts`, pure)
+`createLiveControlSurface(() => engine, { storage })` builds the surface.
+Targets resolve against whatever engine the callback returns at dispatch time,
+so the surface exists — and holds the stored table — before audio starts;
+nothing answers until then. Persistence is the library's `loadMappingTable` /
+`saveMappingTable` (what `surface.persist` composes) placed around the
+semantics pass, so what is saved is always the normalised table and a loaded
+table is normalised in memory without being written back.
 
-```ts
-type MidiSource = { kind: 'cc'; channel; controller } | { kind: 'note'; channel; note }
-interface MidiMapping { source: MidiSource; target: ControlTargetId }
-type MidiMapTable = readonly MidiMapping[]      // one entry per target
+Adding a control: add a spec to `LIVE_CONTROLS` (and its id to
+`LiveControlId`). The knobs, the map panel and the stored-table migration
+read the same list.
 
-mapControl(table, target, source)  // bind (replaces the target's previous source)
-unmapControl(table, target)
-mappingFor(table, target)
-isMapped(table, event)             // does the map consume this event?
-resolveMidiEvent(table, event)     // → ControlChange[]
-learnFromEvent(learn, table, event) // { learn, table, consumed }
-serializeMidiMap / parseMidiMap    // versioned JSON, malformed entries dropped
-loadMidiMap(storage) / saveMidiMap(storage, table)  // any Storage-like object
-```
+## Semantics (U27's, now the library's)
 
-Semantics:
-
-- A CC sets its targets to `value / 127` of the range; on a toggle target a
+- A CC sets its targets to `value / 127` of the knob range; on the monitor a
   MIDI switch (value ≥ 64) turns it on.
-- A note-on on a continuous target sets `velocity / 127`; on a toggle it
-  flips. Note-off does nothing (a pad hit sets a value and leaves it).
+- A note-on on a continuous target sets `velocity / 127`; on the monitor it
+  toggles. Note-off does nothing (a pad hit sets a value and leaves it).
 - Channels are matched (1–16). One source may drive several targets; a target
   has one source.
 - A mapped note never reaches the synth. A note that is already sounding
   always releases on note-off, even if it was mapped mid-hold.
-- Learn: arm a target (`Learn`), move a control or hit a pad; the first CC or
+- Learn: arm a target (**Learn**), move a control or hit a pad; the first CC or
   note-on binds and is consumed. A note-off while armed keeps waiting.
 
-Persistence: key `ambient-live:midi-map`, `{ format: 1, mappings: [...] }`.
-The key is removed when the table is empty. Unknown targets, out-of-range
-channels or bytes and foreign formats are dropped entry by entry, never thrown.
+What the library adds without app work: 14-bit CCs, pitch bend and
+aftertouch as sources, relative encoders, soft takeover, curves, OSC inputs
+(`OscInput`), and lane override once automation lanes exist. See live-mix's
+`docs/control-surface.md`.
+
+## Persistence
+
+Key `ambient-live:midi-map`, unchanged. Tables written by U27
+(`{ format: 1, mappings: [{ source, target: '<id>' }] }`) load through
+`ambientLiveMidiMapMigration(liveControlTargetFor)` with U27 semantics per
+entry and are rewritten in the library's format 2 on the first edit. The key
+is removed when the table is empty. Malformed entries, unknown ids and foreign
+formats are dropped entry by entry, never thrown.
 
 ## UI
 
 The MIDI device panel gains a collapsible **Map** section once MIDI is
-connected: one row per target with its current binding (`CC 74 · ch 1`), a
-**Learn** button (turns into **Cancel** while armed) and **×** to unbind, plus
-**Clear all**. Test ids: `midi-map`, `midi-map-<id>`, `midi-map-<id>-learn`,
+connected: one row per control (`useLearn`) with its current binding
+(`CC 74 · ch 1`), a **Learn** button (turns into **Cancel** while armed) and
+**×** to unbind, plus **Clear all** (`useControlSurface`). Test ids:
+`midi-map`, `midi-map-<id>`, `midi-map-<id>-source`, `midi-map-<id>-learn`,
 `midi-map-<id>-unmap`, `midi-map-clear`.
-
-## Why direct ramped writes and not `ModMatrix`
-
-U19's `Macro` → `ModMatrix` model adds an offset on top of a parameter's base
-at control rate; a hardware knob wants absolute control and the on-screen knob
-should follow it. Every path `applyControl` takes already ramps (WASM host
-parameter smoothing, `ChannelStrip` `setTargetAtTime`), so a direct write is
-click-free and keeps one source of truth (`controls` on the Live page).
-Modulation routes stay available for automation lanes and LFOs later.

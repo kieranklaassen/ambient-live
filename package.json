@@ -17,7 +17,7 @@
   "dependencies": {
     "@inertiajs/react": "^3.6.1",
     "@inertiajs/vite": "^3.6.1",
-    "@kieranklaassen/live-mix": "github:kieranklaassen/live-mix#532e9b38c1487ee197e022a138f82057c0369c3b",
+    "@kieranklaassen/live-mix": "github:kieranklaassen/live-mix#bff2bbd2145b1f81ce153a4234266bb3b5dc1f76",
     "@kieranklaassen/swiss-grid": "github:kieranklaassen/swiss-grid",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/typography": "^0.5.20",

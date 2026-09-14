@@ -1,15 +1,15 @@
 import type { CSSProperties, ReactNode } from 'react'
 
+import type { ControlSurface } from '@kieranklaassen/live-mix'
+
 import { DevicePanel } from '@/components/daw'
 import type { ContextLatency } from '@/audio/latency'
 import type { RoundTripMeasurement } from '@/audio/latency-probe'
-import type { MidiEvent } from '@/audio/midi'
 import Keyboard from './keyboard'
 import LiveInputControls, { type LiveInputState } from './live-input-controls'
 import MidiControls from './midi-controls'
 import MidiMapPanel from './midi-map-panel'
 import ReverbControls, { MasterControls, type ReverbSettings } from './reverb-controls'
-import type { MidiMapController } from './use-midi-map'
 
 export interface LiveInputPanelProps {
   input: LiveInputState
@@ -31,8 +31,8 @@ interface DeviceStripProps {
   onNoteOn: (noteId: number, frequency: number) => void
   onMidiNoteOn: (noteId: number, frequency: number, gain: number) => void
   onNoteOff: (noteId: number) => void
-  onMidiEvent: (event: MidiEvent) => boolean
-  midiMap: MidiMapController
+  /** Where MIDI control events land; the map panel edits its table. */
+  surface: ControlSurface
   liveInput: LiveInputPanelProps
   className?: string
   style?: CSSProperties
@@ -46,8 +46,7 @@ export default function DeviceStrip({
   onNoteOn,
   onMidiNoteOn,
   onNoteOff,
-  onMidiEvent,
-  midiMap,
+  surface,
   liveInput,
   className = '',
   style,
@@ -75,19 +74,11 @@ export default function DeviceStrip({
           <DevicePanel title="MIDI" data-testid="device-midi">
             <MidiControls
               enabled={enabled}
+              surface={surface}
               onNoteOn={onMidiNoteOn}
               onNoteOff={onNoteOff}
-              onMidiEvent={onMidiEvent}
             >
-              <MidiMapPanel
-                enabled={enabled}
-                table={midiMap.table}
-                learn={midiMap.learn}
-                onLearn={midiMap.startLearn}
-                onCancelLearn={midiMap.cancelLearn}
-                onUnmap={midiMap.unmap}
-                onClear={midiMap.clear}
-              />
+              <MidiMapPanel enabled={enabled} surface={surface} />
             </MidiControls>
           </DevicePanel>
         </div>
