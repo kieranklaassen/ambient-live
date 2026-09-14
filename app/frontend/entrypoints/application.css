@@ -74,6 +74,7 @@
   --lm-meter-rms: var(--color-al-muted);
   --lm-meter-lufs: var(--color-al-lufs);
   --lm-meter-track: var(--color-al-sunken);
+  --lm-meter-border: var(--color-al-hairline);
   --lm-playhead: var(--color-al-accent);
   --lm-clip: var(--color-al-raised);
   --lm-clip-border: var(--color-al-accent);
